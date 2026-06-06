@@ -221,6 +221,25 @@ def state_wait_do(cfg, app, win, events):
         import subprocess
         subprocess.Popen(["sudo", "systemctl", "restart", "oi-booth"])
 
+    elif action == "set_led":
+        led_name = cmd.get("led", "")
+        state    = cmd.get("state", "off")
+        if led_name in ("capture", "print", "all") and state in ("on", "off", "blink"):
+            _apply_led(app, led_name, state)
+            if led_name == "all":
+                _led_states["capture"]   = state
+                _led_states["print_led"] = state
+            elif led_name == "print":
+                _led_states["print_led"] = state
+            else:
+                _led_states[led_name] = state
+            try:
+                from booth.ipc import write_led_state
+                write_led_state(_led_states["capture"], _led_states["print_led"])
+            except Exception as e:
+                print(f"[oi-booth] write_led_state error: {e}")
+            print(f"[oi-booth] LED {led_name} → {state}")
+
 
 @hookimpl
 def state_capture_enter(cfg, app, win):
@@ -380,3 +399,149 @@ def state_finish_exit(cfg, app, win):
     _current_state = "wait"
     _qr_state["active"] = False
     _qr_state["surface"] = None
+
+
+# ── Event photo copy ──────────────────────────────────────────────────────────
+
+@hookimpl
+def state_processing_enter(cfg, app, win):
+    """
+    After pibooth finishes processing a session, copy the resulting photo
+    into the active event's sub-directory (if an event is running).
+    Runs alongside the existing state_processing_enter hook above.
+    """
+    import json as _json
+    import shutil as _shutil
+
+    try:
+        from booth.ipc import ACTIVE_EVENT_FILE
+    except ImportError:
+        ACTIVE_EVENT_FILE = Path("/tmp/oi-booth-event.json")
+
+    if not ACTIVE_EVENT_FILE.exists():
+        return
+
+    try:
+        event = _json.loads(ACTIVE_EVENT_FILE.read_text())
+    except Exception as exc:
+        print(f"[oi-booth] Could not read active event: {exc}")
+        return
+
+    if not event.get("active"):
+        return
+
+    picture_file = getattr(app, "previous_picture_file", None)
+    if not picture_file or not Path(picture_file).exists():
+        return
+
+    try:
+        from booth.events import event_photo_dir
+        dest_dir = event_photo_dir(event)
+        dest = dest_dir / Path(picture_file).name
+        _shutil.copy2(picture_file, dest)
+        print(f"[oi-booth] Event copy: {dest}")
+    except Exception as exc:
+        print(f"[oi-booth] Event copy error: {exc}")
+
+
+# ── Attract slideshow state ───────────────────────────────────────────────────
+
+_attract_idx   = 0
+_attract_timer = 0.0
+
+# ── LED state tracking ────────────────────────────────────────────────────────
+
+_led_states = {"capture": "off", "print_led": "off"}
+
+
+def _apply_led(app, led_name: str, state: str):
+    """
+    Apply an LED action to app.leds via gpiozero LEDBoard.
+    led_name is the logical name ("capture", "print", "all").
+    Fails silently when app.leds is unavailable (dev/mock environment).
+    """
+    leds_board = getattr(app, "leds", None)
+    if leds_board is None:
+        print(f"[oi-booth] LED mock: {led_name} → {state} (no app.leds)")
+        return
+
+    targets = []
+    if led_name == "all":
+        targets = ["capture", "print"]
+    else:
+        targets = [led_name]
+
+    for name in targets:
+        led_obj = getattr(leds_board, name, None)
+        if led_obj is None:
+            print(f"[oi-booth] LED not found on board: {name}")
+            continue
+        try:
+            if state == "on":
+                led_obj.on()
+            elif state == "off":
+                led_obj.off()
+            elif state == "blink":
+                led_obj.blink(on_time=0.3, off_time=0.3)
+        except Exception as e:
+            print(f"[oi-booth] LED error ({name} → {state}): {e}")
+
+
+@hookimpl
+def pibooth_configure(cfg):
+    """Register the attract_delay config key (all other OIBOOTH keys registered above)."""
+    cfg.add_option(SECTION, "attract_delay", "8",
+                   "Seconds between attract slideshow slides (0 to disable)")
+
+
+@hookimpl
+def pibooth_startup(cfg, app):
+    """Reset attract slideshow state on plugin (re)load."""
+    global _attract_idx, _attract_timer
+    _attract_idx   = 0
+    _attract_timer = 0.0
+
+    try:
+        from booth.attract import get_attract_dir, list_attract_images
+        attract_dir = get_attract_dir()
+        count = len(list_attract_images())
+        if count:
+            print(f"[oi-booth] Attract slideshow: {count} image(s) in {attract_dir}")
+        else:
+            print(f"[oi-booth] Attract slideshow: no images in {attract_dir} — skipping")
+    except Exception as e:
+        print(f"[oi-booth] Attract slideshow init error: {e}")
+
+
+@hookimpl
+def state_wait_do(cfg, app, win, events):
+    """Drive the attract slideshow while the booth is idle."""
+    global _attract_idx, _attract_timer
+
+    try:
+        delay = float(_cfg(cfg, "attract_delay") or "8")
+    except ValueError:
+        delay = 8.0
+
+    if delay <= 0:
+        return
+
+    now = time.time()
+    if now - _attract_timer < delay:
+        return
+
+    try:
+        from booth.attract import get_next_attract_image, build_pygame_surface
+        import pygame
+
+        image_path, next_idx = get_next_attract_image(_attract_idx)
+        if image_path is not None:
+            win_size = win.get_rect().size if hasattr(win, "get_rect") else (800, 600)
+            surface  = build_pygame_surface(image_path, win_size)
+            win.surface.blit(surface, (0, 0))
+            pygame.display.update()
+            _attract_idx = next_idx
+        _attract_timer = now
+    except Exception as e:
+        print(f"[oi-booth] Attract slideshow error: {e}")
+        _attract_timer = now  # back off to avoid log spam
