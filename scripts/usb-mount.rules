@@ -1,0 +1,10 @@
+# udev rule — auto-mount USB drives to /media/usb when plugged in
+# Install: sudo cp scripts/usb-mount.rules /etc/udev/rules.d/99-oi-booth-usb.rules
+#          sudo udevadm control --reload-rules
+
+ACTION=="add", SUBSYSTEMS=="usb", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", \
+  RUN{program}+="/bin/mkdir -p /media/usb", \
+  RUN{program}+="/bin/mount -o uid=pi,gid=pi /dev/%k /media/usb"
+
+ACTION=="remove", SUBSYSTEMS=="usb", SUBSYSTEM=="block", \
+  RUN{program}+="/bin/umount -l /media/usb"

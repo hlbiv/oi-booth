@@ -1,11 +1,102 @@
 {% extends "base.html" %}
 {% block title %}Admin — oi-booth{% endblock %}
 
+{% block head %}
+<style>
+  .section-card {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+  }
+  .section-header {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+    color: #aaa;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .section-header:hover { color: #fff; }
+  .section-body { display: none; padding: 0 1rem 1rem; }
+  .section-body.open { display: block; }
+  .config-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #1a1a1a;
+    flex-wrap: wrap;
+  }
+  .config-row:last-child { border-bottom: none; }
+  .config-key { color: #666; font-size: 0.78rem; min-width: 220px; }
+  .config-key span { display: block; color: #444; font-size: 0.7rem; margin-top: 1px; }
+  .config-val {
+    flex: 1;
+    background: #0d0d0d;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    color: #ccc;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.82rem;
+    min-width: 160px;
+  }
+  .config-val:focus { border-color: #f97316; outline: none; color: #fff; }
+  .save-row {
+    margin-top: 0.75rem;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .usb-card {
+    background: #0d1a0d;
+    border: 1px solid #1a3a1a;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .usb-icon { font-size: 1.8rem; }
+  .usb-info { flex: 1; }
+  .usb-info strong { color: #86efac; font-size: 0.95rem; }
+  .usb-info small { color: #555; font-size: 0.75rem; display: block; margin-top: 2px; }
+  .progress-bar {
+    height: 4px;
+    background: #1a3a1a;
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .progress-fill { height: 100%; background: #16a34a; border-radius: 2px; }
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid #222; margin-bottom: 1.5rem; }
+  .tab {
+    padding: 0.6rem 1.25rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s;
+  }
+  .tab:hover { color: #ccc; }
+  .tab.active { color: #f97316; border-bottom-color: #f97316; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+</style>
+{% endblock %}
+
 {% block content %}
 <h1>Booth Admin</h1>
 
-<!-- Stats row -->
-<div class="grid-2" style="margin-bottom: 1.5rem;">
+<!-- Stats -->
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
   <div class="stat">
     <div class="value">{{ photo_count }}</div>
     <div class="label">Photos taken</div>
@@ -13,125 +104,203 @@
   {% if storage %}
   <div class="stat">
     <div class="value">{{ storage.free_gb }}GB</div>
-    <div class="label">Storage free ({{ storage.used_pct }}% used)</div>
+    <div class="label">Storage free</div>
   </div>
-  {% else %}
   <div class="stat">
-    <div class="value">—</div>
-    <div class="label">Storage unavailable</div>
+    <div class="value">{{ storage.used_pct }}%</div>
+    <div class="label">Disk used</div>
   </div>
   {% endif %}
+  <div class="stat">
+    <div class="value">{{ usb_drives|length }}</div>
+    <div class="label">USB drives</div>
+  </div>
 </div>
 
-<!-- Config editor -->
-<div class="card">
-  <h2>Config</h2>
-  <form action="/admin/config" method="POST">
-    <div class="form-row">
-      <div class="field">
-        <label>Section</label>
-        <select name="section">
-          {% for section in cfg.sections() %}
-            <option value="{{ section }}">{{ section }}</option>
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('config')">Config</div>
+  <div class="tab" onclick="switchTab('assets')">Backgrounds & Overlays</div>
+  <div class="tab" onclick="switchTab('storage')">Storage</div>
+  <div class="tab" onclick="switchTab('maintenance')">Maintenance</div>
+</div>
+
+<!-- CONFIG TAB -->
+<div id="tab-config" class="tab-content active">
+  <div class="card" style="padding: 1rem;">
+    <form action="/admin/config" method="POST">
+      {% for section_name, keys in sections.items() %}
+      <div class="section-card">
+        <div class="section-header" onclick="toggleSection('{{ section_name }}')">
+          <span>[{{ section_name }}]</span>
+          <span id="chevron-{{ section_name }}" style="transition: transform 0.2s;">▶</span>
+        </div>
+        <div class="section-body {% if section_name == 'OIBOOTH' %}open{% endif %}" id="section-{{ section_name }}">
+          {% for key, meta in keys.items() %}
+          <div class="config-row">
+            <div class="config-key">
+              {{ meta.label }}<span>{{ key }}</span>
+            </div>
+            <input
+              class="config-val"
+              type="text"
+              name="cfg[{{ section_name }}][{{ key }}]"
+              value="{{ meta.value }}"
+              placeholder="(not set)">
+          </div>
           {% endfor %}
-          <option value="OIBOOTH">OIBOOTH</option>
-        </select>
+        </div>
       </div>
-      <div class="field">
-        <label>Key</label>
-        <input type="text" name="key" placeholder="e.g. language">
-      </div>
-      <div class="field">
-        <label>Value</label>
-        <input type="text" name="value" placeholder="e.g. en">
-      </div>
-      <button type="submit" class="btn btn-primary">Save</button>
-    </div>
-  </form>
-
-  {% for section in cfg.sections() %}
-  <details style="margin-top: 1rem;">
-    <summary style="cursor: pointer; color: #888; font-size: 0.85rem; padding: 0.4rem 0;">[{{ section }}]</summary>
-    <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.8rem;">
-      {% for key, value in cfg.items(section) %}
-      <tr style="border-bottom: 1px solid #222;">
-        <td style="padding: 0.35rem 0.5rem; color: #aaa; width: 40%;">{{ key }}</td>
-        <td style="padding: 0.35rem 0.5rem; color: #666;">{{ value }}</td>
-      </tr>
       {% endfor %}
-    </table>
-  </details>
-  {% endfor %}
-</div>
-
-<!-- Backgrounds -->
-<div class="card">
-  <h2>Backgrounds</h2>
-  <form action="/admin/upload/background" method="POST" enctype="multipart/form-data">
-    <div class="form-row">
-      <div class="field">
-        <label>Upload image (JPG or PNG)</label>
-        <input type="file" name="file" accept=".jpg,.jpeg,.png">
+      <div class="save-row">
+        <button type="submit" class="btn btn-primary">Save All Config</button>
       </div>
-      <button type="submit" class="btn btn-primary">Upload</button>
-    </div>
-  </form>
-
-  {% if backgrounds %}
-  <div class="asset-grid">
-    {% for bg in backgrounds %}
-    <div class="asset-item">
-      <img src="/admin/asset/background/{{ bg.name }}" alt="{{ bg.name }}">
-      <div class="asset-name">{{ bg.name }}</div>
-      <form action="/admin/delete/background/{{ bg.name }}" method="POST" style="display:inline;">
-        <button type="submit" class="delete-btn" onclick="return confirm('Delete {{ bg.name }}?')">✕</button>
-      </form>
-    </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <p style="color: #555; font-size: 0.85rem; margin-top: 0.75rem;">No backgrounds uploaded yet.</p>
-  {% endif %}
-</div>
-
-<!-- Overlays -->
-<div class="card">
-  <h2>Overlays</h2>
-  <form action="/admin/upload/overlay" method="POST" enctype="multipart/form-data">
-    <div class="form-row">
-      <div class="field">
-        <label>Upload PNG overlay</label>
-        <input type="file" name="file" accept=".png">
-      </div>
-      <button type="submit" class="btn btn-primary">Upload</button>
-    </div>
-  </form>
-
-  {% if overlays %}
-  <div class="asset-grid">
-    {% for ov in overlays %}
-    <div class="asset-item">
-      <img src="/admin/asset/overlay/{{ ov.name }}" alt="{{ ov.name }}">
-      <div class="asset-name">{{ ov.name }}</div>
-      <form action="/admin/delete/overlay/{{ ov.name }}" method="POST" style="display:inline;">
-        <button type="submit" class="delete-btn" onclick="return confirm('Delete {{ ov.name }}?')">✕</button>
-      </form>
-    </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <p style="color: #555; font-size: 0.85rem; margin-top: 0.75rem;">No overlays uploaded yet.</p>
-  {% endif %}
-</div>
-
-<!-- Maintenance -->
-<div class="card">
-  <h2>Maintenance</h2>
-  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-    <form action="/admin/restart" method="POST">
-      <button type="submit" class="btn btn-danger" onclick="return confirm('Restart the booth?')">Restart Booth</button>
     </form>
-    <a href="/admin/logs" class="btn btn-ghost">View Logs</a>
   </div>
 </div>
+
+<!-- ASSETS TAB -->
+<div id="tab-assets" class="tab-content">
+  <div class="card">
+    <h2>Backgrounds</h2>
+    <form action="/admin/upload/background" method="POST" enctype="multipart/form-data">
+      <div class="form-row">
+        <div class="field">
+          <label>Upload JPG or PNG</label>
+          <input type="file" name="file" accept=".jpg,.jpeg,.png">
+        </div>
+        <button type="submit" class="btn btn-primary" style="margin-top: 1.3rem;">Upload</button>
+      </div>
+    </form>
+    {% if backgrounds %}
+    <div class="asset-grid" style="margin-top: 1rem;">
+      {% for bg in backgrounds %}
+      <div class="asset-item">
+        <img src="/admin/asset/background/{{ bg.name }}" alt="{{ bg.name }}">
+        <div class="asset-name">{{ bg.name }}</div>
+        <form action="/admin/delete/background/{{ bg.name }}" method="POST" style="display:inline;">
+          <button type="submit" class="delete-btn" onclick="return confirm('Delete?')">✕</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="color:#555; font-size:0.85rem; margin-top:0.75rem;">No backgrounds uploaded yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Overlays</h2>
+    <form action="/admin/upload/overlay" method="POST" enctype="multipart/form-data">
+      <div class="form-row">
+        <div class="field">
+          <label>Upload PNG overlay</label>
+          <input type="file" name="file" accept=".png">
+        </div>
+        <button type="submit" class="btn btn-primary" style="margin-top: 1.3rem;">Upload</button>
+      </div>
+    </form>
+    {% if overlays %}
+    <div class="asset-grid" style="margin-top: 1rem;">
+      {% for ov in overlays %}
+      <div class="asset-item">
+        <img src="/admin/asset/overlay/{{ ov.name }}" alt="{{ ov.name }}">
+        <div class="asset-name">{{ ov.name }}</div>
+        <form action="/admin/delete/overlay/{{ ov.name }}" method="POST" style="display:inline;">
+          <button type="submit" class="delete-btn" onclick="return confirm('Delete?')">✕</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="color:#555; font-size:0.85rem; margin-top:0.75rem;">No overlays uploaded yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- STORAGE TAB -->
+<div id="tab-storage" class="tab-content">
+  {% if usb_drives %}
+  <div class="card">
+    <h2>USB Drives</h2>
+    {% for drive in usb_drives %}
+    <div class="usb-card">
+      <div class="usb-icon">💾</div>
+      <div class="usb-info">
+        <strong>{{ drive.label }}</strong>
+        <small>{{ drive.mountpoint }} · {{ drive.size }} · {{ drive.fstype }}</small>
+        {% if drive.storage %}
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: {{ drive.storage.used_pct }}%;"></div>
+        </div>
+        <small style="margin-top:4px;">{{ drive.storage.free_gb }}GB free of {{ drive.storage.total_gb }}GB</small>
+        {% endif %}
+      </div>
+      <form action="/admin/storage/set-usb" method="POST">
+        <input type="hidden" name="mountpoint" value="{{ drive.mountpoint }}">
+        <button type="submit" class="btn btn-primary">Use This Drive</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card">
+    <p style="color:#555; text-align:center; padding: 2rem 0;">No USB drives detected. Plug in a drive and refresh.</p>
+  </div>
+  {% endif %}
+
+  {% if storage %}
+  <div class="card">
+    <h2>Current Storage</h2>
+    <p style="color:#888; font-size:0.85rem; margin-bottom:0.75rem;">{{ storage.path }}</p>
+    <div class="progress-bar" style="height: 8px; background: #222;">
+      <div class="progress-fill" style="width: {{ storage.used_pct }}%; background: {% if storage.used_pct > 85 %}#dc2626{% else %}#f97316{% endif %};"></div>
+    </div>
+    <p style="color:#888; font-size:0.8rem; margin-top:0.5rem;">{{ storage.free_gb }}GB free · {{ storage.used_gb }}GB used · {{ storage.total_gb }}GB total</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- MAINTENANCE TAB -->
+<div id="tab-maintenance" class="tab-content">
+  <div class="card">
+    <h2>Actions</h2>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+      <form action="/admin/restart" method="POST">
+        <button type="submit" class="btn btn-danger" onclick="return confirm('Restart the booth?')">Restart Booth</button>
+      </form>
+      <a href="/admin/logs" class="btn btn-ghost">View Logs</a>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Network</h2>
+    <p style="color: #666; font-size: 0.85rem;">
+      Admin panel: <code style="color:#f97316;">http://{{ request.host }}/admin</code><br>
+      Gallery: <code style="color:#f97316;">http://{{ request.host }}/gallery</code>
+    </p>
+  </div>
+</div>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+
+  function toggleSection(name) {
+    const body = document.getElementById('section-' + name);
+    const chevron = document.getElementById('chevron-' + name);
+    const isOpen = body.classList.contains('open');
+    body.classList.toggle('open', !isOpen);
+    chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+  }
+
+  // Auto-open OIBOOTH if present
+  document.addEventListener('DOMContentLoaded', () => {
+    const oib = document.getElementById('chevron-OIBOOTH');
+    if (oib) oib.style.transform = 'rotate(90deg)';
+  });
+</script>
 {% endblock %}
