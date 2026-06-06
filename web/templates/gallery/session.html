@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Photo — oi-booth</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0f0f0f;
+      color: #e8e8e8;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .photo-wrap {
+      width: 100%;
+      max-width: 480px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    .photo-wrap img {
+      width: 100%;
+      display: block;
+    }
+    .actions {
+      margin-top: 1.5rem;
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+    .btn {
+      padding: 0.75rem 2rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: #f97316; color: #fff; }
+    .btn-ghost { background: #1a1a1a; color: #ccc; border: 1px solid #333; }
+    .tagline {
+      margin-top: 2rem;
+      font-size: 0.8rem;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+  <div class="photo-wrap">
+    <img src="/gallery/{{ session_id }}/photo" alt="Your photo booth picture">
+  </div>
+  <div class="actions">
+    <a href="/gallery/{{ session_id }}/photo" download="{{ filename }}" class="btn btn-primary">Download</a>
+    <a href="/gallery" class="btn btn-ghost">All Photos</a>
+  </div>
+  <p class="tagline">oi-booth</p>
+</body>
+</html>

@@ -1,0 +1,14 @@
+[Unit]
+Description=oi-booth web server
+After=network.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/oi-booth
+EnvironmentFile=-/home/pi/oi-booth/.env
+ExecStart=/home/pi/oi-booth/venv/bin/python -m web.app
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

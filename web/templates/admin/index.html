@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Admin — oi-booth{% endblock %}
+
+{% block content %}
+<h1>Booth Admin</h1>
+
+<!-- Stats row -->
+<div class="grid-2" style="margin-bottom: 1.5rem;">
+  <div class="stat">
+    <div class="value">{{ photo_count }}</div>
+    <div class="label">Photos taken</div>
+  </div>
+  {% if storage %}
+  <div class="stat">
+    <div class="value">{{ storage.free_gb }}GB</div>
+    <div class="label">Storage free ({{ storage.used_pct }}% used)</div>
+  </div>
+  {% else %}
+  <div class="stat">
+    <div class="value">—</div>
+    <div class="label">Storage unavailable</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Config editor -->
+<div class="card">
+  <h2>Config</h2>
+  <form action="/admin/config" method="POST">
+    <div class="form-row">
+      <div class="field">
+        <label>Section</label>
+        <select name="section">
+          {% for section in cfg.sections() %}
+            <option value="{{ section }}">{{ section }}</option>
+          {% endfor %}
+          <option value="OIBOOTH">OIBOOTH</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Key</label>
+        <input type="text" name="key" placeholder="e.g. language">
+      </div>
+      <div class="field">
+        <label>Value</label>
+        <input type="text" name="value" placeholder="e.g. en">
+      </div>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </form>
+
+  {% for section in cfg.sections() %}
+  <details style="margin-top: 1rem;">
+    <summary style="cursor: pointer; color: #888; font-size: 0.85rem; padding: 0.4rem 0;">[{{ section }}]</summary>
+    <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.8rem;">
+      {% for key, value in cfg.items(section) %}
+      <tr style="border-bottom: 1px solid #222;">
+        <td style="padding: 0.35rem 0.5rem; color: #aaa; width: 40%;">{{ key }}</td>
+        <td style="padding: 0.35rem 0.5rem; color: #666;">{{ value }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </details>
+  {% endfor %}
+</div>
+
+<!-- Backgrounds -->
+<div class="card">
+  <h2>Backgrounds</h2>
+  <form action="/admin/upload/background" method="POST" enctype="multipart/form-data">
+    <div class="form-row">
+      <div class="field">
+        <label>Upload image (JPG or PNG)</label>
+        <input type="file" name="file" accept=".jpg,.jpeg,.png">
+      </div>
+      <button type="submit" class="btn btn-primary">Upload</button>
+    </div>
+  </form>
+
+  {% if backgrounds %}
+  <div class="asset-grid">
+    {% for bg in backgrounds %}
+    <div class="asset-item">
+      <img src="/admin/asset/background/{{ bg.name }}" alt="{{ bg.name }}">
+      <div class="asset-name">{{ bg.name }}</div>
+      <form action="/admin/delete/background/{{ bg.name }}" method="POST" style="display:inline;">
+        <button type="submit" class="delete-btn" onclick="return confirm('Delete {{ bg.name }}?')">✕</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color: #555; font-size: 0.85rem; margin-top: 0.75rem;">No backgrounds uploaded yet.</p>
+  {% endif %}
+</div>
+
+<!-- Overlays -->
+<div class="card">
+  <h2>Overlays</h2>
+  <form action="/admin/upload/overlay" method="POST" enctype="multipart/form-data">
+    <div class="form-row">
+      <div class="field">
+        <label>Upload PNG overlay</label>
+        <input type="file" name="file" accept=".png">
+      </div>
+      <button type="submit" class="btn btn-primary">Upload</button>
+    </div>
+  </form>
+
+  {% if overlays %}
+  <div class="asset-grid">
+    {% for ov in overlays %}
+    <div class="asset-item">
+      <img src="/admin/asset/overlay/{{ ov.name }}" alt="{{ ov.name }}">
+      <div class="asset-name">{{ ov.name }}</div>
+      <form action="/admin/delete/overlay/{{ ov.name }}" method="POST" style="display:inline;">
+        <button type="submit" class="delete-btn" onclick="return confirm('Delete {{ ov.name }}?')">✕</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color: #555; font-size: 0.85rem; margin-top: 0.75rem;">No overlays uploaded yet.</p>
+  {% endif %}
+</div>
+
+<!-- Maintenance -->
+<div class="card">
+  <h2>Maintenance</h2>
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+    <form action="/admin/restart" method="POST">
+      <button type="submit" class="btn btn-danger" onclick="return confirm('Restart the booth?')">Restart Booth</button>
+    </form>
+    <a href="/admin/logs" class="btn btn-ghost">View Logs</a>
+  </div>
+</div>
+{% endblock %}
