@@ -11,8 +11,10 @@ import os
 import time
 from pathlib import Path
 
-CMD_FILE    = Path(os.environ.get("OI_CMD_FILE",    "/tmp/oi-booth-cmd.json"))
-STATUS_FILE = Path(os.environ.get("OI_STATUS_FILE", "/tmp/oi-booth-status.json"))
+CMD_FILE         = Path(os.environ.get("OI_CMD_FILE",         "/tmp/oi-booth-cmd.json"))
+STATUS_FILE      = Path(os.environ.get("OI_STATUS_FILE",      "/tmp/oi-booth-status.json"))
+LED_STATE_FILE   = Path(os.environ.get("OI_LED_STATE_FILE",   "/tmp/oi-booth-leds.json"))
+ACTIVE_EVENT_FILE = Path(os.environ.get("OI_ACTIVE_EVENT",   "/tmp/oi-booth-event.json"))
 
 # ── Commands (web → plugin) ───────────────────────────────────────────────────
 
@@ -64,3 +66,22 @@ def read_status() -> dict:
         pass
     return {"state": "unknown", "mode": "photo", "photo_count": 0,
             "last_session_id": "", "ts": 0}
+
+
+# ── LED state (plugin → web) ──────────────────────────────────────────────────
+
+def write_led_state(capture: str = "off", print_led: str = "off"):
+    payload = {"capture": capture, "print": print_led, "ts": time.time()}
+    try:
+        LED_STATE_FILE.write_text(json.dumps(payload))
+    except Exception:
+        pass
+
+
+def read_led_state() -> dict:
+    try:
+        if LED_STATE_FILE.exists():
+            return json.loads(LED_STATE_FILE.read_text())
+    except Exception:
+        pass
+    return {"capture": "off", "print": "off", "ts": 0}

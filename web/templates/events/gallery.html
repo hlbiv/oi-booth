@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{{ event.name }} — oi-booth</title>
+  <meta name="theme-color" content="#0f0f0f">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0a;
+      color: #e8e8e8;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+
+    header {
+      padding: max(env(safe-area-inset-top), 1.25rem) 1.25rem 1rem;
+      border-bottom: 1px solid #1a1a1a;
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .brand {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #f97316;
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+
+    .event-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      margin-top: 0.5rem;
+    }
+
+    .event-date {
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 0.2rem;
+    }
+
+    .photo-count {
+      font-size: 0.8rem;
+      color: #555;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 3px;
+      padding: 3px;
+      margin-top: 3px;
+    }
+
+    @media (max-width: 400px) {
+      .grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    .thumb {
+      aspect-ratio: 3/4;
+      overflow: hidden;
+      position: relative;
+      background: #111;
+      cursor: pointer;
+      display: block;
+      text-decoration: none;
+    }
+
+    .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+
+    .thumb:hover img { transform: scale(1.04); }
+
+    .thumb .gif-badge {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      background: rgba(249, 115, 22, 0.9);
+      color: #fff;
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+    }
+
+    .empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 55vh;
+      gap: 0.5rem;
+      color: #333;
+      font-size: 0.9rem;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .empty .icon { font-size: 3rem; display: block; margin-bottom: 0.5rem; }
+
+    /* Lightbox */
+    #lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.92);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    #lightbox.open { display: flex; }
+
+    #lightbox img {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 6px;
+      object-fit: contain;
+    }
+
+    #lightbox-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #fff;
+      font-size: 1.5rem;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    #lightbox-close:hover { background: rgba(255, 255, 255, 0.2); }
+
+    #lightbox-caption {
+      position: absolute;
+      bottom: 1.25rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
+      color: #ccc;
+      font-size: 0.8rem;
+      padding: 0.35rem 0.9rem;
+      border-radius: 99px;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <a class="brand" href="/gallery">oi-booth</a>
+      <span class="photo-count">{{ photos|length }} photo{{ 's' if photos|length != 1 else '' }}</span>
+    </div>
+    <div class="event-title">{{ event.name }}</div>
+    {% if event.date %}
+    <div class="event-date">{{ event.date }}</div>
+    {% endif %}
+  </header>
+
+  {% if photos %}
+  <div class="grid">
+    {% for photo in photos %}
+    <a class="thumb"
+       href="/gallery/{{ photo.session_id }}"
+       data-src="/gallery/event/{{ event.id }}/photo/{{ photo.filename }}"
+       data-caption="{{ photo.taken_at }}"
+       onclick="openLightbox(event, this)">
+      <img src="/gallery/event/{{ event.id }}/photo/{{ photo.filename }}"
+           loading="lazy"
+           alt="Photo {{ loop.index }}">
+      {% if photo.is_gif %}
+      <span class="gif-badge">
+        {{ 'BOOM' if 'boomerang' in photo.filename else 'GIF' }}
+      </span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Lightbox -->
+  <div id="lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer">
+    <button id="lightbox-close" aria-label="Close" onclick="closeLightbox()">&#x2715;</button>
+    <img id="lightbox-img" src="" alt="Full-size photo">
+    <div id="lightbox-caption"></div>
+  </div>
+
+  {% else %}
+  <div class="empty">
+    <span class="icon">📷</span>
+    <span>No photos yet — check back soon!</span>
+  </div>
+  {% endif %}
+
+  <script>
+    var lb     = document.getElementById('lightbox');
+    var lbImg  = document.getElementById('lightbox-img');
+    var lbCap  = document.getElementById('lightbox-caption');
+
+    function openLightbox(e, el) {
+      e.preventDefault();
+      lbImg.src     = el.dataset.src;
+      lbCap.textContent = el.dataset.caption || '';
+      lb.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+      lb.classList.remove('open');
+      lbImg.src = '';
+      document.body.style.overflow = '';
+    }
+
+    lb.addEventListener('click', function(e) {
+      if (e.target === lb) closeLightbox();
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeLightbox();
+    });
+  </script>
+
+</body>
+</html>

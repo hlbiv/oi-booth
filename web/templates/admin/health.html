@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}Health — oi-booth{% endblock %}
+
+{% block head %}
+<style>
+  /* ── Health dot shared styles ─────────────────────────────────────────────── */
+  .health-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 3px;
+    transition: background 0.3s;
+  }
+  .health-dot--ok      { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,.5); }
+  .health-dot--warn    { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,.5); }
+  .health-dot--error   { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,.5); }
+  .health-dot--unknown { background: #555; }
+
+  /* ── Health rows ──────────────────────────────────────────────────────────── */
+  .health-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid #222;
+  }
+  .health-row:last-child { border-bottom: none; }
+
+  .health-row-body { flex: 1; min-width: 0; }
+
+  .health-row-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #e8e8e8;
+    margin-bottom: 0.2rem;
+  }
+
+  .health-row-detail {
+    font-size: 0.78rem;
+    color: #888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── Meta bar ─────────────────────────────────────────────────────────────── */
+  .meta-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .meta-bar .meta-item {
+    font-size: 0.8rem;
+    color: #666;
+  }
+
+  .meta-bar .meta-item span {
+    color: #aaa;
+    font-family: monospace;
+  }
+
+  /* ── Update section ───────────────────────────────────────────────────────── */
+  .update-card { margin-top: 1.5rem; }
+
+  .update-warning {
+    background: #1c1400;
+    border: 1px solid #78350f;
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    font-size: 0.85rem;
+    color: #fbbf24;
+    margin-bottom: 1rem;
+    display: none;
+  }
+
+  .update-warning.visible { display: block; }
+
+  .update-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+  }
+
+  /* ── Storage bar ──────────────────────────────────────────────────────────── */
+  .storage-bar-wrap {
+    margin-top: 0.4rem;
+    height: 4px;
+    background: #2a2a2a;
+    border-radius: 2px;
+    overflow: hidden;
+    width: 100%;
+    max-width: 220px;
+  }
+
+  .storage-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.4s, background 0.3s;
+    background: #22c55e;
+  }
+
+  .storage-bar-fill.warn  { background: #f59e0b; }
+  .storage-bar-fill.error { background: #ef4444; }
+
+  /* ── Section heading with live badge ──────────────────────────────────────── */
+  .section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+  }
+
+  .live-badge {
+    font-size: 0.7rem;
+    color: #555;
+    id: health-last-updated;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>System Health</h1>
+
+<!-- Meta bar: git commit + last updated -->
+<div class="meta-bar">
+  <div class="meta-item">
+    Commit&nbsp;<span>{{ git.commit }}</span>
+    {% if git.date %}&nbsp;&middot;&nbsp;<span>{{ git.date }}</span>{% endif %}
+  </div>
+  <div class="meta-item" id="health-last-updated">Loading&hellip;</div>
+</div>
+
+<!-- Health status card -->
+<div class="card">
+  <div class="section-heading">
+    <h2 style="margin-bottom:0">Status</h2>
+  </div>
+
+  <!-- Storage -->
+  <div class="health-row">
+    <span class="health-dot health-dot--unknown" id="dot-storage"></span>
+    <div class="health-row-body">
+      <div class="health-row-title">Storage</div>
+      <div class="health-row-detail" id="label-storage">Checking&hellip;</div>
+      <div class="storage-bar-wrap">
+        <div class="storage-bar-fill" id="storage-bar" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Camera -->
+  <div class="health-row">
+    <span class="health-dot health-dot--unknown" id="dot-camera"></span>
+    <div class="health-row-body">
+      <div class="health-row-title">Camera</div>
+      <div class="health-row-detail" id="label-camera">Checking&hellip;</div>
+    </div>
+  </div>
+
+  <!-- Printer -->
+  <div class="health-row">
+    <span class="health-dot health-dot--unknown" id="dot-printer"></span>
+    <div class="health-row-body">
+      <div class="health-row-title">Printer</div>
+      <div class="health-row-detail" id="label-printer">Checking&hellip;</div>
+    </div>
+  </div>
+
+  <!-- Booth process -->
+  <div class="health-row">
+    <span class="health-dot health-dot--unknown" id="dot-booth"></span>
+    <div class="health-row-body">
+      <div class="health-row-title">Booth Process</div>
+      <div class="health-row-detail" id="label-booth">Checking&hellip;</div>
+    </div>
+  </div>
+</div>
+
+<!-- Last photo info -->
+<div class="card">
+  <h2>Last Session</h2>
+  <p class="health-row-detail" id="last-photo-info" style="margin-top:.25rem">Loading&hellip;</p>
+</div>
+
+<!-- Update card -->
+<div class="card update-card">
+  <h2>Software Update</h2>
+  <p style="font-size:.85rem;color:#888;margin-bottom:1rem">
+    Runs <code style="background:#111;padding:2px 5px;border-radius:4px;color:#ccc">git pull</code>,
+    reinstalls Python dependencies, then restarts the booth and web services.
+    The page will become temporarily unavailable.
+  </p>
+
+  <div class="update-warning" id="update-warning">
+    This will restart the booth and web server. Any active photo sessions will be interrupted.
+    The web UI will be offline for approximately 30 seconds.
+  </div>
+
+  <div class="update-actions">
+    <button class="btn btn-ghost" id="btn-show-update" onclick="showUpdateConfirm()">
+      Check for Update
+    </button>
+
+    <form id="update-form" action="/admin/ops/update" method="POST"
+          style="display:none">
+      <input type="hidden" name="confirm_token" value="i-understand-this-will-restart">
+      <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+        <button type="submit" class="btn btn-danger">
+          Yes, update and restart
+        </button>
+        <button type="button" class="btn btn-ghost" onclick="cancelUpdateConfirm()">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="/static/js/health.js"></script>
+<script>
+  // Extra DOM update for the storage bar (not covered by health.js base logic)
+  var _origUpdate = window.updateHealthWidget;
+  window.updateHealthWidget = function(data) {
+    _origUpdate(data);
+
+    // Storage progress bar
+    if (data && data.storage) {
+      var bar = document.getElementById("storage-bar");
+      if (bar) {
+        var pct = data.storage.used_pct || 0;
+        bar.style.width = Math.min(pct, 100) + "%";
+        bar.className = "storage-bar-fill" +
+          (pct >= 90 ? " error" : pct >= 80 ? " warn" : "");
+      }
+    }
+  };
+
+  function showUpdateConfirm() {
+    document.getElementById("update-warning").classList.add("visible");
+    document.getElementById("update-form").style.display = "block";
+    document.getElementById("btn-show-update").style.display = "none";
+  }
+
+  function cancelUpdateConfirm() {
+    document.getElementById("update-warning").classList.remove("visible");
+    document.getElementById("update-form").style.display = "none";
+    document.getElementById("btn-show-update").style.display = "";
+  }
+</script>
+{% endblock %}

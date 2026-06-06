@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}Display Settings — oi-booth{% endblock %}
+
+{% block head %}
+<style>
+  .section-desc {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+  }
+
+  .attract-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .attract-item {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #2a2a2a;
+    background: #111;
+  }
+
+  .attract-item img {
+    width: 100%;
+    height: 100px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .attract-item .item-footer {
+    padding: 0.35rem 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem;
+  }
+
+  .attract-item .item-name {
+    font-size: 0.7rem;
+    color: #888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+  }
+
+  .attract-item .delete-btn {
+    background: rgba(220, 38, 38, 0.85);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+  }
+  .attract-item .delete-btn:hover { opacity: 0.8; }
+
+  .order-badge {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    background: rgba(0,0,0,0.65);
+    color: #f97316;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: #444;
+    font-size: 0.9rem;
+    border: 2px dashed #2a2a2a;
+    border-radius: 10px;
+    margin-top: 1rem;
+  }
+  .empty-state strong { display: block; font-size: 1rem; color: #555; margin-bottom: 0.4rem; }
+
+  /* Finish screen preview */
+  .finish-preview {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .finish-preview .mock-screen {
+    background: #0a0a0a;
+    aspect-ratio: 16/9;
+    max-height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .finish-preview .mock-photo {
+    width: 38%;
+    aspect-ratio: 3/4;
+    background: #1a1a1a;
+    border: 2px solid #333;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #444;
+    font-size: 0.75rem;
+    text-align: center;
+    margin-right: 2rem;
+  }
+
+  .finish-preview .mock-qr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .finish-preview .qr-box {
+    width: 90px;
+    height: 90px;
+    background: #fff;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+  }
+
+  .finish-preview .qr-inner {
+    width: 100%;
+    height: 100%;
+    background: repeating-conic-gradient(#000 0% 25%, #fff 0% 50%) 0 0 / 10px 10px;
+    border-radius: 2px;
+  }
+
+  .finish-preview .qr-label {
+    font-size: 0.65rem;
+    color: #888;
+    text-align: center;
+    max-width: 120px;
+    line-height: 1.4;
+  }
+
+  .finish-preview .mock-footer {
+    background: #1a1a1a;
+    border-top: 1px solid #222;
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .finish-preview .mock-footer span {
+    font-size: 0.75rem;
+    color: #666;
+  }
+
+  .finish-preview .mock-footer .accent { color: #f97316; }
+
+  .timing-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+
+  .timing-chip {
+    background: #111;
+    border: 1px solid #2a2a2a;
+    border-radius: 20px;
+    padding: 0.3rem 0.85rem;
+    font-size: 0.8rem;
+    color: #888;
+  }
+  .timing-chip strong { color: #f97316; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Display Settings</h1>
+
+<!-- ── Attract Slideshow ─────────────────────────────────────────────────── -->
+<div class="card">
+  <h2>Attract Slideshow</h2>
+  <p class="section-desc">
+    These images rotate on the booth screen while idle, enticing guests to step
+    up and take a photo. Images cycle in alphabetical order every few seconds
+    (configurable via <code style="color:#f97316;">attract_delay</code> in
+    <strong>pibooth.cfg → [OIBOOTH]</strong>). Upload JPG or PNG files — landscape
+    orientation works best.
+  </p>
+
+  <!-- Upload form -->
+  <form action="{{ url_for('display.upload') }}" method="post" enctype="multipart/form-data">
+    <div class="form-row">
+      <div class="field">
+        <label for="attract-file">Add image (JPG or PNG)</label>
+        <input type="file" id="attract-file" name="file" accept=".jpg,.jpeg,.png" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Upload</button>
+    </div>
+  </form>
+
+  <!-- Image grid -->
+  {% if images %}
+  <div class="attract-grid">
+    {% for img in images %}
+    <div class="attract-item">
+      <span class="order-badge">{{ loop.index }}</span>
+      <img src="{{ url_for('display.asset', filename=img.name) }}"
+           alt="{{ img.name }}"
+           loading="lazy">
+      <div class="item-footer">
+        <span class="item-name" title="{{ img.name }}">{{ img.name }}</span>
+        <form action="{{ url_for('display.delete', filename=img.name) }}" method="post" style="margin:0;">
+          <button type="submit" class="delete-btn"
+                  onclick="return confirm('Delete {{ img.name }}?')">✕</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <p style="font-size:0.75rem; color:#555; margin-top:0.75rem;">
+    {{ images | length }} image{{ 's' if images | length != 1 }} — slides rotate in the order shown above.
+  </p>
+
+  {% else %}
+  <div class="empty-state">
+    <strong>No attract images yet</strong>
+    Upload images above and they will cycle on the booth screen while it is idle.
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── Finish Screen Preview ─────────────────────────────────────────────── -->
+<div class="card">
+  <h2>Finish Screen Preview</h2>
+  <p class="section-desc">
+    After every photo session this screen appears on the booth display. Guests
+    scan the QR code to download their photo from the gallery.
+  </p>
+
+  <div class="finish-preview">
+    <!-- Mock booth display -->
+    <div class="mock-screen">
+      <div class="mock-photo">
+        <span>Your<br>photo<br>here</span>
+      </div>
+      <div class="mock-qr">
+        <div class="qr-box">
+          <div class="qr-inner"></div>
+        </div>
+        <div class="qr-label">Scan to get<br>your photo</div>
+        <div style="font-size:0.6rem; color:#555;">booth.local:5000/gallery/…</div>
+      </div>
+    </div>
+    <div class="mock-footer">
+      <span>oi<span class="accent">-booth</span></span>
+      <span>Tap anywhere to continue</span>
+    </div>
+  </div>
+
+  <!-- Timing summary -->
+  <div class="timing-row">
+    <div class="timing-chip">
+      QR display: <strong>{{ qr_duration or 12 }}s</strong>
+    </div>
+    <div class="timing-chip">
+      Attract delay: <strong>{{ attract_delay or 8 }}s</strong>
+    </div>
+  </div>
+  <p style="font-size:0.75rem; color:#555; margin-top:0.75rem;">
+    Adjust durations in <strong>Admin → Config</strong> under the
+    <code style="color:#f97316;">[OIBOOTH]</code> section
+    (<code>qr_duration</code>, <code>attract_delay</code>).
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+{% block title %}Printer Status — oi-booth{% endblock %}
+
+{% block head %}
+<style>
+  .printer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .printer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 8px;
+    padding: 0.9rem 1.1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .printer-name {
+    font-weight: 600;
+    color: #e8e8e8;
+    font-size: 0.95rem;
+  }
+
+  .printer-default-tag {
+    font-size: 0.7rem;
+    background: rgba(249,115,22,0.15);
+    color: #f97316;
+    border: 1px solid rgba(249,115,22,0.3);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.65rem;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .badge-idle    { background: rgba(34,197,94,0.15);  color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+  .badge-paused  { background: rgba(234,179,8,0.15);  color: #facc15; border: 1px solid rgba(234,179,8,0.25); }
+  .badge-printing{ background: rgba(249,115,22,0.15); color: #fb923c; border: 1px solid rgba(249,115,22,0.25); }
+  .badge-unknown { background: rgba(107,114,128,0.15);color: #9ca3af; border: 1px solid rgba(107,114,128,0.25); }
+  .badge-error   { background: rgba(220,38,38,0.15);  color: #f87171; border: 1px solid rgba(220,38,38,0.25); }
+
+  .job-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .job-table th {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    color: #555;
+    font-weight: 500;
+    border-bottom: 1px solid #2a2a2a;
+  }
+
+  .job-table td {
+    padding: 0.6rem 0.75rem;
+    color: #ccc;
+    border-bottom: 1px solid #1f1f1f;
+    vertical-align: middle;
+  }
+
+  .job-table tr:last-child td { border-bottom: none; }
+
+  .job-table td .job-id { font-family: monospace; color: #888; font-size: 0.8rem; }
+
+  .no-printers {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: #555;
+  }
+
+  .no-printers h3 { color: #777; margin-bottom: 0.75rem; font-size: 1rem; }
+
+  .no-printers code {
+    background: #111;
+    border: 1px solid #2a2a2a;
+    border-radius: 4px;
+    padding: 0.15rem 0.4rem;
+    font-size: 0.8rem;
+    color: #aaa;
+  }
+
+  .no-printers pre {
+    background: #111;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-size: 0.8rem;
+    color: #aaa;
+    text-align: left;
+    display: inline-block;
+    margin-top: 0.75rem;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.9rem;
+  }
+
+  .refresh-label {
+    font-size: 0.75rem;
+    color: #444;
+  }
+
+  #refreshDot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #2a2a2a;
+    margin-right: 4px;
+    vertical-align: middle;
+    transition: background 0.3s;
+  }
+
+  #refreshDot.active { background: #22c55e; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Printer Status</h1>
+
+<!-- Printers card -->
+<div class="card">
+  <div class="section-header">
+    <h2 style="margin-bottom:0;">Detected Printers</h2>
+    <span class="refresh-label">
+      <span id="refreshDot"></span>auto-refresh 5s
+    </span>
+  </div>
+
+  <div class="printer-list" id="printerList">
+    {% if printers %}
+      {% for p in printers %}
+      <div class="printer-row">
+        <div>
+          <span class="printer-name">{{ p.name }}</span>
+          {% if p.name == default_printer %}
+            <span class="printer-default-tag">default</span>
+          {% endif %}
+        </div>
+        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+          <span class="badge badge-{{ p.status }}">{{ p.status }}</span>
+          <form method="post" action="/admin/printer/test" style="margin:0;">
+            <input type="hidden" name="printer_name" value="{{ p.name }}">
+            <button type="submit" class="btn btn-ghost" style="font-size:0.8rem; padding:0.35rem 0.9rem;">
+              Test Print
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="no-printers" id="noPrintersMsg">
+        <h3>No printers detected</h3>
+        <p style="font-size:0.875rem; margin-bottom:0.75rem;">
+          Make sure CUPS is installed and a printer is configured.
+        </p>
+        <pre>sudo apt install cups
+sudo usermod -aG lpadmin $USER
+# Then visit: http://localhost:631</pre>
+        <p style="font-size:0.8rem; color:#444; margin-top:0.75rem;">
+          After adding a printer in CUPS, this page will detect it automatically.
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Test print (no specific printer — uses default) -->
+{% if printers %}
+<div class="card">
+  <h2>Quick Test Print</h2>
+  <p style="font-size:0.875rem; color:#888; margin-bottom:1rem;">
+    Sends a small color gradient image to the default printer
+    {% if default_printer %}(<strong style="color:#ccc;">{{ default_printer }}</strong>){% endif %}.
+  </p>
+  <form method="post" action="/admin/printer/test">
+    <input type="hidden" name="printer_name" value="">
+    <button type="submit" class="btn btn-primary">Send Test Print</button>
+  </form>
+</div>
+{% endif %}
+
+<!-- Active jobs card -->
+<div class="card">
+  <h2>Print Queue</h2>
+  <div id="jobQueueWrap">
+    {% if jobs %}
+    <table class="job-table">
+      <thead>
+        <tr>
+          <th>Job ID</th>
+          <th>Printer</th>
+          <th>Owner</th>
+          <th>Size</th>
+          <th>Submitted</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="jobTableBody">
+        {% for job in jobs %}
+        <tr>
+          <td><span class="job-id">{{ job.job_id }}</span></td>
+          <td>{{ job.printer }}</td>
+          <td>{{ job.owner }}</td>
+          <td>{{ job.size }} B</td>
+          <td style="color:#666;">{{ job.time }}</td>
+          <td>
+            <form method="post" action="/admin/printer/cancel/{{ job.job_id }}" style="margin:0;">
+              <button type="submit" class="btn btn-danger"
+                      style="font-size:0.75rem; padding:0.3rem 0.75rem;"
+                      onclick="return confirm('Cancel job {{ job.job_id }}?')">
+                Cancel
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p id="noJobsMsg" style="color:#555; font-size:0.875rem;">No active print jobs.</p>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  let refreshTimer;
+
+  function badgeClass(status) {
+    const map = { idle: 'badge-idle', paused: 'badge-paused', printing: 'badge-printing', unknown: 'badge-unknown', error: 'badge-error' };
+    return map[status] || 'badge-unknown';
+  }
+
+  function renderPrinters(printers, defaultPrinter) {
+    const list = document.getElementById('printerList');
+    if (!printers || printers.length === 0) {
+      list.innerHTML = `
+        <div class="no-printers" id="noPrintersMsg">
+          <h3>No printers detected</h3>
+          <p style="font-size:0.875rem; margin-bottom:0.75rem;">
+            Make sure CUPS is installed and a printer is configured.
+          </p>
+          <pre>sudo apt install cups\nsudo usermod -aG lpadmin $USER\n# Then visit: http://localhost:631</pre>
+          <p style="font-size:0.8rem; color:#444; margin-top:0.75rem;">
+            After adding a printer in CUPS, this page will detect it automatically.
+          </p>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = printers.map(p => `
+      <div class="printer-row">
+        <div>
+          <span class="printer-name">${p.name}</span>
+          ${p.name === defaultPrinter ? '<span class="printer-default-tag">default</span>' : ''}
+        </div>
+        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+          <span class="badge ${badgeClass(p.status)}">${p.status}</span>
+          <form method="post" action="/admin/printer/test" style="margin:0;">
+            <input type="hidden" name="printer_name" value="${p.name}">
+            <button type="submit" class="btn btn-ghost" style="font-size:0.8rem; padding:0.35rem 0.9rem;">
+              Test Print
+            </button>
+          </form>
+        </div>
+      </div>`).join('');
+  }
+
+  function renderJobs(jobs) {
+    const wrap = document.getElementById('jobQueueWrap');
+    if (!jobs || jobs.length === 0) {
+      wrap.innerHTML = '<p id="noJobsMsg" style="color:#555; font-size:0.875rem;">No active print jobs.</p>';
+      return;
+    }
+    wrap.innerHTML = `
+      <table class="job-table">
+        <thead>
+          <tr>
+            <th>Job ID</th><th>Printer</th><th>Owner</th><th>Size</th><th>Submitted</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${jobs.map(job => `
+          <tr>
+            <td><span class="job-id">${job.job_id}</span></td>
+            <td>${job.printer}</td>
+            <td>${job.owner}</td>
+            <td>${job.size} B</td>
+            <td style="color:#666;">${job.time}</td>
+            <td>
+              <form method="post" action="/admin/printer/cancel/${job.job_id}" style="margin:0;">
+                <button type="submit" class="btn btn-danger"
+                        style="font-size:0.75rem; padding:0.3rem 0.75rem;"
+                        onclick="return confirm('Cancel job ${job.job_id}?')">
+                  Cancel
+                </button>
+              </form>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  async function refresh() {
+    const dot = document.getElementById('refreshDot');
+    dot.classList.add('active');
+    try {
+      const res = await fetch('/admin/printer/api/status');
+      const data = await res.json();
+      renderPrinters(data.printers, data.default_printer);
+      renderJobs(data.all_jobs);
+    } catch (e) {
+      // network blip — ignore
+    }
+    setTimeout(() => dot.classList.remove('active'), 400);
+  }
+
+  refreshTimer = setInterval(refresh, 5000);
+</script>
+{% endblock %}

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>oi-booth — PIN Login</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-wrap {
+      width: 100%;
+      max-width: 340px;
+      padding: 2rem 1.5rem;
+    }
+
+    .brand {
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #fff;
+      margin-bottom: 2.5rem;
+    }
+
+    .brand span { color: #f97316; }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 2rem 1.75rem;
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #ccc;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+
+    .flash-messages { margin-bottom: 1rem; }
+
+    .flash {
+      padding: 0.65rem 0.9rem;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    .flash.error { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+
+    .field { margin-bottom: 1.5rem; }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 0.4rem;
+      text-align: center;
+    }
+
+    input[type="password"] {
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #e8e8e8;
+      padding: 0.75rem 1rem;
+      font-size: 1.75rem;
+      letter-spacing: 0.5em;
+      text-align: center;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+      -webkit-text-security: disc;
+    }
+
+    input[type="password"]:focus {
+      border-color: #f97316;
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: #555;
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+
+    .btn-primary {
+      display: block;
+      width: 100%;
+      padding: 0.65rem 1rem;
+      background: #f97316;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    .btn-primary:hover { opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="brand">oi<span>-booth</span></div>
+
+    <div class="card">
+      <h2>Enter operator PIN</h2>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-messages">
+            {% for category, msg in messages %}
+              <div class="flash {{ category }}">{{ msg }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="post" action="{{ url_for('auth.login') }}" id="pin-form">
+        <div class="field">
+          <label for="pin">4-digit PIN</label>
+          <input
+            id="pin"
+            name="pin"
+            type="password"
+            maxlength="4"
+            pattern="[0-9]{4}"
+            inputmode="numeric"
+            autocomplete="off"
+            autofocus
+            required
+          >
+          <p class="hint">Auto-submits after 4 digits</p>
+        </div>
+        <button type="submit" class="btn-primary">Unlock</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var input = document.getElementById("pin");
+      var form  = document.getElementById("pin-form");
+
+      input.addEventListener("input", function () {
+        // Strip non-digits so the pattern stays clean
+        this.value = this.value.replace(/\D/g, "").slice(0, 4);
+        if (this.value.length === 4) {
+          form.submit();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

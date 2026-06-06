@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Events — oi-booth{% endblock %}
+
+{% block head %}
+<style>
+  .event-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  .event-row {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    transition: border-color 0.15s;
+  }
+
+  .event-row.is-active {
+    border-color: #f97316;
+    box-shadow: 0 0 0 1px #f9731640;
+  }
+
+  .event-info { flex: 1; min-width: 160px; }
+  .event-name { font-weight: 600; color: #fff; font-size: 1rem; }
+  .event-meta { font-size: 0.8rem; color: #666; margin-top: 0.2rem; }
+  .event-meta span { margin-right: 0.75rem; }
+
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 99px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .badge-active   { background: #f97316; color: #fff; }
+  .badge-inactive { background: #2a2a2a; color: #777; }
+
+  .event-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+  .photo-count {
+    font-size: 0.8rem;
+    color: #888;
+    min-width: 64px;
+    text-align: right;
+  }
+  .photo-count strong { color: #f97316; font-size: 1.1rem; }
+
+  .create-card { margin-bottom: 1.5rem; }
+  .create-card h2 { margin-bottom: 1rem; }
+
+  input[type="date"] {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #e8e8e8;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    width: 100%;
+    color-scheme: dark;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #444;
+    font-size: 0.9rem;
+  }
+  .empty-state .icon { font-size: 2.5rem; display: block; margin-bottom: 0.75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Events</h1>
+
+<!-- Create event form -->
+<div class="card create-card">
+  <h2>New Event</h2>
+  <form method="POST" action="/admin/events/create">
+    <div class="form-row">
+      <div class="field">
+        <label for="name">Event Name</label>
+        <input type="text" id="name" name="name" placeholder="Spring Gala 2026" required>
+      </div>
+      <div class="field" style="flex:0 0 160px;">
+        <label for="date">Date</label>
+        <input type="date" id="date" name="date" required>
+      </div>
+      <div class="field">
+        <label for="template">Template (optional)</label>
+        <input type="text" id="template" name="template" placeholder="template name">
+      </div>
+      <div style="padding-bottom:1px;">
+        <button type="submit" class="btn btn-primary">Create</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Event list -->
+{% if events %}
+<div class="event-list">
+  {% for event in events %}
+  <div class="event-row {% if event.active %}is-active{% endif %}">
+
+    <div class="event-info">
+      <div class="event-name">
+        {{ event.name }}
+        {% if event.active %}
+        <span class="badge badge-active" style="margin-left:0.5rem;">Live</span>
+        {% else %}
+        <span class="badge badge-inactive" style="margin-left:0.5rem;">Inactive</span>
+        {% endif %}
+      </div>
+      <div class="event-meta">
+        <span>{{ event.date }}</span>
+        {% if event.template %}<span>Template: {{ event.template }}</span>{% endif %}
+        <span style="color:#555;">ID: {{ event.id }}</span>
+      </div>
+    </div>
+
+    <div class="photo-count">
+      <strong>{{ event._photo_count }}</strong><br>
+      photos
+    </div>
+
+    <div class="event-actions">
+      {% if event.active %}
+      <form method="POST" action="/admin/events/{{ event.id }}/stop" style="display:inline;">
+        <button type="submit" class="btn btn-ghost">Stop</button>
+      </form>
+      {% else %}
+      <form method="POST" action="/admin/events/{{ event.id }}/start" style="display:inline;">
+        <button type="submit" class="btn btn-primary">Start</button>
+      </form>
+      {% endif %}
+
+      <a href="/gallery/event/{{ event.id }}" class="btn btn-ghost" target="_blank">Gallery</a>
+
+      <form method="POST" action="/admin/events/{{ event.id }}/delete"
+            style="display:inline;"
+            onsubmit="return confirm('Delete event {{ event.name | e }}? This cannot be undone.');">
+        <button type="submit" class="btn btn-danger">Delete</button>
+      </form>
+    </div>
+
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state">
+  <span class="icon">🗓</span>
+  No events yet — create one above.
+</div>
+{% endif %}
+{% endblock %}

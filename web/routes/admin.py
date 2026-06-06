@@ -11,6 +11,7 @@ from pathlib import Path
 from configparser import ConfigParser
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file
+from .auth import require_pin
 
 admin_bp = Blueprint("admin", __name__)
 
