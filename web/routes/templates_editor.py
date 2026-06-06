@@ -12,6 +12,11 @@ from configparser import ConfigParser
 
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 
+try:
+    from booth.ipc import send_command as _ipc_send
+except ImportError:
+    _ipc_send = None
+
 templates_bp = Blueprint("templates", __name__)
 
 TEMPLATES_DIR = Path(os.environ.get("OI_TEMPLATES_DIR",
@@ -117,7 +122,12 @@ def apply(filename):
         return redirect(url_for("templates.index"))
     data = json.loads(path.read_text())
     _apply_template(data)
-    flash(f"Template '{data.get('name')}' applied to pibooth config.", "success")
+    if _ipc_send:
+        try:
+            _ipc_send("restart")
+        except Exception:
+            pass
+    flash(f"Template '{data.get('name')}' applied — pibooth is restarting.", "success")
     return redirect(url_for("templates.index"))
 
 

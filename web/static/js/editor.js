@@ -27,7 +27,6 @@
   const ctx = canvas.getContext('2d');
   let bgImg = null;
   let overlayImg = null;
-  let dragging = null; // { zoneIdx, offsetX, offsetY }
 
   function canvasSize() {
     if (state.orientation === 'landscape') return { w: 600, h: 400 };
@@ -142,63 +141,6 @@
     }
   }
 
-  // ── Drag to reposition zones ──────────────────────────────────────────────
-  function hitTest(mx, my) {
-    const { w, h } = canvasSize();
-    for (let i = state.zones.length - 1; i >= 0; i--) {
-      const z = state.zones[i];
-      if (mx >= z.x * w && mx <= (z.x + z.w) * w &&
-          my >= z.y * h && my <= (z.y + z.h) * h) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  function canvasXY(e) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const src = e.touches ? e.touches[0] : e;
-    return {
-      x: (src.clientX - rect.left) * scaleX,
-      y: (src.clientY - rect.top) * scaleY,
-    };
-  }
-
-  canvas.addEventListener('mousedown', onDragStart);
-  canvas.addEventListener('touchstart', onDragStart, { passive: true });
-
-  function onDragStart(e) {
-    const { x, y } = canvasXY(e);
-    const idx = hitTest(x, y);
-    if (idx === -1) return;
-    const { w, h } = canvasSize();
-    const z = state.zones[idx];
-    dragging = {
-      idx,
-      offX: x - z.x * w,
-      offY: y - z.y * h,
-    };
-  }
-
-  window.addEventListener('mousemove', onDragMove);
-  window.addEventListener('touchmove', onDragMove, { passive: false });
-
-  function onDragMove(e) {
-    if (!dragging) return;
-    if (e.cancelable) e.preventDefault();
-    const { x, y } = canvasXY(e);
-    const { w, h } = canvasSize();
-    const z = state.zones[dragging.idx];
-    z.x = Math.max(0, Math.min((x - dragging.offX) / w, 1 - z.w));
-    z.y = Math.max(0, Math.min((y - dragging.offY) / h, 1 - z.h));
-    draw();
-  }
-
-  window.addEventListener('mouseup', () => { dragging = null; });
-  window.addEventListener('touchend', () => { dragging = null; });
-
   // ── Controls wiring ───────────────────────────────────────────────────────
   function bindInput(id, stateKey, transform) {
     const el = document.getElementById(id);
@@ -245,7 +187,7 @@
 
   // ── Save / Load ───────────────────────────────────────────────────────────
   window.saveTemplate = async function () {
-    const payload = { ...state };
+    const { zones: _, ...payload } = { ...state }; // zones are a preview only, not saved
     const res = await fetch('/admin/templates/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
