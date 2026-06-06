@@ -28,21 +28,28 @@ mkdir -p "$PLUGIN_DIR"
 cp "$INSTALL_DIR/booth/plugin.py" "$PLUGIN_DIR/oi_booth_plugin.py"
 
 echo "==> Copying booth support modules"
-# Plugin needs these alongside it for standalone installs
-for mod in ipc.py modes.py ai_bg.py attract.py events.py; do
-  cp "$INSTALL_DIR/booth/$mod" "$PLUGIN_DIR/$mod"
+# Copy support modules into plugins/booth/ so 'from booth.ipc import ...' works
+# when pibooth loads the plugin from this directory.
+BOOTH_PKG="$PLUGIN_DIR/booth"
+mkdir -p "$BOOTH_PKG"
+for mod in ipc.py modes.py ai_bg.py attract.py events.py __init__.py; do
+  src="$INSTALL_DIR/booth/$mod"
+  [ -f "$src" ] && cp "$src" "$BOOTH_PKG/$mod"
 done
-# Create __init__.py so they're importable as a package
-touch "$PLUGIN_DIR/__init__.py"
+touch "$BOOTH_PKG/__init__.py"
 
 echo "==> Copying default config (if none exists)"
 CFG="$CFG_DIR/pibooth.cfg"
 if [ ! -f "$CFG" ]; then
   mkdir -p "$(dirname "$CFG")"
   cp "$INSTALL_DIR/config/pibooth.cfg" "$CFG"
-  echo "    Wrote $CFG"
+  # Replace ~ plugin path with absolute path so pibooth always finds it
+  PLUGIN_ABS="$PLUGIN_DIR/oi_booth_plugin.py"
+  sed -i "s|~/.config/pibooth/plugins/oi_booth_plugin.py|$PLUGIN_ABS|" "$CFG"
+  echo "    Wrote $CFG (plugin path: $PLUGIN_ABS)"
 else
   echo "    Config already exists — skipping"
+  echo "    Ensure [GENERAL] plugins = $PLUGIN_DIR/oi_booth_plugin.py"
 fi
 
 echo "==> Creating required directories"

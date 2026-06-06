@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Your Photo — oi-booth</title>
+  <title>{% if event %}{{ event.name }} — {% endif %}Your Photo — oi-booth</title>
   <meta name="theme-color" content="#0f0f0f">
   <link rel="manifest" href="/static/manifest.json">
   <style>
@@ -153,7 +153,7 @@
 </head>
 <body class="{% if is_gif %}is-gif{% endif %}">
   <div class="top-bar">
-    <span class="brand">oi-booth</span>
+    <span class="brand">{% if event %}{{ event.name }}{% else %}oi-booth{% endif %}</span>
     <a href="/gallery" class="back-link">← All photos</a>
   </div>
 
@@ -178,6 +178,11 @@
     <button class="btn btn-secondary" id="nativeShareBtn" style="display:none"
             onclick="nativeShare()">
       Share
+    </button>
+
+    <!-- Print -->
+    <button class="btn btn-secondary" id="printBtn" onclick="printPhoto()">
+      🖨 Print this photo
     </button>
 
     <!-- Email share toggle -->
@@ -214,6 +219,27 @@
         const file = new File([blob], FILENAME, { type: blob.type });
         await navigator.share({ title: 'My photo booth pic', files: [file] });
       } catch (e) { /* cancelled or unsupported */ }
+    }
+
+    // ── Print ─────────────────────────────────────────────────────────────
+    async function printPhoto() {
+      const btn = document.getElementById('printBtn');
+      btn.disabled = true;
+      btn.textContent = 'Sending to printer…';
+      try {
+        const res  = await fetch('/gallery/' + SESSION_ID + '/print', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          btn.textContent = '✓ Sent to printer';
+        } else {
+          btn.textContent = data.error || 'Print failed';
+          btn.disabled = false;
+        }
+      } catch (e) {
+        btn.textContent = 'Print failed — try again';
+        btn.disabled = false;
+      }
+      setTimeout(() => { btn.textContent = '🖨 Print this photo'; btn.disabled = false; }, 4000);
     }
 
     // ── Email share ────────────────────────────────────────────────────────

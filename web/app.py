@@ -20,6 +20,14 @@ Runs alongside pibooth on the Pi.
 
 import os
 import sys
+from pathlib import Path
+
+# Load .env when running manually (systemd uses EnvironmentFile instead)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+except ImportError:
+    pass
 
 # Ensure booth package is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))

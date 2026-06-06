@@ -6,6 +6,7 @@ After=network.target graphical-session.target
 User=pi
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/pi/.Xauthority
+Environment=PYTHONPATH=/home/pi/oi-booth
 WorkingDirectory=/home/pi/oi-booth
 ExecStart=/home/pi/oi-booth/venv/bin/pibooth
 Restart=on-failure

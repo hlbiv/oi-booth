@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Gallery — oi-booth</title>
+  <title>{% if event %}{{ event.name }} — {% endif %}Gallery — oi-booth</title>
   <meta name="theme-color" content="#0f0f0f">
   <link rel="manifest" href="/static/manifest.json">
   <style>
@@ -84,7 +84,11 @@
 <body>
   <header>
     <span class="brand">oi-booth</span>
-    <h1>Gallery ({{ photos|length }} photos)</h1>
+    {% if event %}
+    <h1>{{ event.name }} · {{ photos|length }} photo{{ 's' if photos|length != 1 else '' }}</h1>
+    {% else %}
+    <h1>Gallery · {{ photos|length }} photo{{ 's' if photos|length != 1 else '' }}</h1>
+    {% endif %}
   </header>
 
   {% if photos %}
