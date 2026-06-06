@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Your Photo — oi-booth</title>
   <meta name="theme-color" content="#0f0f0f">
+  <link rel="manifest" href="/static/manifest.json">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -49,72 +50,6 @@
       border-radius: 14px;
       display: block;
       box-shadow: 0 24px 80px rgba(0,0,0,0.7);
-      transition: transform 0.3s ease;
-    }
-
-    .photo-wrap img:hover { transform: scale(1.01); }
-
-    .is-gif .photo-wrap img { border-radius: 14px; }
-
-    .actions {
-      padding: 1rem 1.25rem;
-      padding-bottom: max(env(safe-area-inset-bottom), 1rem);
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      max-width: 480px;
-      margin: 0 auto;
-      width: 100%;
-    }
-
-    .btn-download {
-      display: block;
-      width: 100%;
-      padding: 1rem;
-      background: #f97316;
-      color: #fff;
-      border: none;
-      border-radius: 12px;
-      font-size: 1rem;
-      font-weight: 700;
-      text-align: center;
-      text-decoration: none;
-      cursor: pointer;
-      transition: opacity 0.15s;
-    }
-    .btn-download:hover { opacity: 0.9; }
-
-    .btn-share {
-      display: none;
-      width: 100%;
-      padding: 1rem;
-      background: #1a1a1a;
-      color: #ccc;
-      border: 1px solid #2a2a2a;
-      border-radius: 12px;
-      font-size: 1rem;
-      font-weight: 600;
-      text-align: center;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .btn-share:hover { background: #222; }
-
-    .btn-gallery {
-      display: block;
-      text-align: center;
-      color: #444;
-      font-size: 0.85rem;
-      text-decoration: none;
-      padding: 0.4rem;
-    }
-    .btn-gallery:hover { color: #666; }
-
-    .meta {
-      text-align: center;
-      padding: 0.5rem 1.25rem 0;
-      color: #333;
-      font-size: 0.75rem;
     }
 
     .gif-badge {
@@ -130,6 +65,90 @@
       top: 10px;
       left: 10px;
     }
+
+    .meta {
+      text-align: center;
+      padding: 0.5rem 1.25rem 0;
+      color: #333;
+      font-size: 0.75rem;
+    }
+
+    .actions {
+      padding: 1rem 1.25rem;
+      padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      max-width: 480px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 0.9rem 1rem;
+      border: none;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.88; }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+
+    .btn-primary  { background: #f97316; color: #fff; }
+    .btn-secondary { background: #1a1a1a; color: #ccc; border: 1px solid #2a2a2a; }
+    .btn-ghost    { background: transparent; color: #444; font-size: 0.85rem; font-weight: 400; padding: 0.4rem; }
+
+    /* Email share panel */
+    .email-panel {
+      display: none;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .email-panel.open { display: flex; }
+
+    .email-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .email-row input {
+      flex: 1;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 10px;
+      color: #e8e8e8;
+      padding: 0.7rem 1rem;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .email-row input:focus { border-color: #f97316; }
+
+    .email-row .btn-send {
+      background: #f97316;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 0.7rem 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.9rem;
+      white-space: nowrap;
+    }
+
+    .email-status {
+      font-size: 0.8rem;
+      text-align: center;
+      min-height: 1.2em;
+      color: #666;
+    }
+    .email-status.ok  { color: #22c55e; }
+    .email-status.err { color: #ef4444; }
   </style>
 </head>
 <body class="{% if is_gif %}is-gif{% endif %}">
@@ -142,44 +161,114 @@
     <div class="photo-wrap">
       {% if is_gif %}
         <span class="gif-badge">{{ 'BOOM' if 'boomerang' in filename else 'GIF' }}</span>
-        <img src="/gallery/{{ session_id }}/photo" alt="Animated photo booth picture">
-      {% else %}
-        <img src="/gallery/{{ session_id }}/photo" alt="Your photo booth picture">
       {% endif %}
+      <img src="/gallery/{{ session_id }}/photo" alt="Your photo booth picture">
     </div>
   </div>
 
   <p class="meta">{{ taken_at }}</p>
 
   <div class="actions">
-    <a class="btn-download" href="/gallery/{{ session_id }}/photo" download="{{ filename }}">
-      ↓ Download
+    <!-- Download -->
+    <a class="btn btn-primary" href="/gallery/{{ session_id }}/photo" download="{{ filename }}">
+      ↓ Save photo
     </a>
-    <button class="btn-share" id="shareBtn" onclick="sharePhoto()">
+
+    <!-- Native share (mobile) -->
+    <button class="btn btn-secondary" id="nativeShareBtn" style="display:none"
+            onclick="nativeShare()">
       Share
     </button>
-    <a href="/gallery" class="btn-gallery">Browse all photos</a>
+
+    <!-- Email share toggle -->
+    <button class="btn btn-secondary" id="emailToggleBtn"
+            onclick="toggleEmail()">
+      ✉ Email me this photo
+    </button>
+
+    <!-- Email panel -->
+    <div class="email-panel" id="emailPanel">
+      <div class="email-row">
+        <input type="email" id="emailInput" placeholder="you@example.com" inputmode="email">
+        <button class="btn-send" id="sendBtn" onclick="sendEmail()">Send</button>
+      </div>
+      <p class="email-status" id="emailStatus"></p>
+    </div>
+
+    <a href="/gallery" class="btn btn-ghost">Browse all photos</a>
   </div>
 
   <script>
-    // Show native share sheet on mobile if available
+    const SESSION_ID = {{ session_id | tojson }};
+    const FILENAME   = {{ filename   | tojson }};
+
+    // ── Native share (mobile) ──────────────────────────────────────────────
     if (navigator.share) {
-      document.getElementById('shareBtn').style.display = 'block';
+      document.getElementById('nativeShareBtn').style.display = 'block';
     }
 
-    async function sharePhoto() {
+    async function nativeShare() {
       try {
-        const res = await fetch('/gallery/{{ session_id }}/photo');
+        const res  = await fetch('/gallery/' + SESSION_ID + '/photo');
         const blob = await res.blob();
-        const ext = '{{ filename }}'.split('.').pop();
-        const file = new File([blob], '{{ filename }}', { type: blob.type });
-        await navigator.share({
-          title: 'My photo booth pic',
-          files: [file],
-        });
-      } catch (e) {
-        // Share cancelled or not supported — ignore
+        const file = new File([blob], FILENAME, { type: blob.type });
+        await navigator.share({ title: 'My photo booth pic', files: [file] });
+      } catch (e) { /* cancelled or unsupported */ }
+    }
+
+    // ── Email share ────────────────────────────────────────────────────────
+    function toggleEmail() {
+      const panel = document.getElementById('emailPanel');
+      const open  = panel.classList.toggle('open');
+      if (open) document.getElementById('emailInput').focus();
+    }
+
+    async function sendEmail() {
+      const email   = document.getElementById('emailInput').value.trim();
+      const statusEl = document.getElementById('emailStatus');
+      const sendBtn  = document.getElementById('sendBtn');
+
+      if (!email || !email.includes('@')) {
+        statusEl.textContent = 'Please enter a valid email address.';
+        statusEl.className = 'email-status err';
+        return;
       }
+
+      sendBtn.disabled = true;
+      statusEl.textContent = 'Sending…';
+      statusEl.className = 'email-status';
+
+      try {
+        const res  = await fetch('/share/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: SESSION_ID, email }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          statusEl.textContent = 'Sent! Check your inbox.';
+          statusEl.className = 'email-status ok';
+          document.getElementById('emailInput').value = '';
+        } else {
+          statusEl.textContent = data.error || 'Something went wrong.';
+          statusEl.className = 'email-status err';
+          sendBtn.disabled = false;
+        }
+      } catch (e) {
+        statusEl.textContent = 'Network error — try again.';
+        statusEl.className = 'email-status err';
+        sendBtn.disabled = false;
+      }
+    }
+
+    // ── Allow enter key to send ────────────────────────────────────────────
+    document.getElementById('emailInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') sendEmail();
+    });
+
+    // ── Register service worker ────────────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/sw.js').catch(() => {});
     }
   </script>
 </body>

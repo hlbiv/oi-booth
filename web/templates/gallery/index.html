@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Gallery — oi-booth</title>
   <meta name="theme-color" content="#0f0f0f">
+  <link rel="manifest" href="/static/manifest.json">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -105,5 +106,10 @@
     <span>No photos yet</span>
   </div>
   {% endif %}
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+    }
+  </script>
 </body>
 </html>
