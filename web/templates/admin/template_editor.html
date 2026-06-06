@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}Templates — oi-booth{% endblock %}
+
+{% block head %}
+<style>
+  .editor-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1.25rem;
+    align-items: start;
+  }
+  @media (max-width: 720px) {
+    .editor-layout { grid-template-columns: 1fr; }
+  }
+
+  .controls-panel {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .control-section {
+    border-bottom: 1px solid #222;
+  }
+  .control-section:last-child { border-bottom: none; }
+
+  .control-header {
+    padding: 0.65rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #555;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    background: #111;
+  }
+
+  .control-body { padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+
+  .field label {
+    display: block;
+    font-size: 0.72rem;
+    color: #555;
+    margin-bottom: 3px;
+  }
+
+  .field input, .field select {
+    background: #0d0d0d;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    color: #ccc;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.82rem;
+    width: 100%;
+  }
+
+  .field input:focus, .field select:focus {
+    border-color: #f97316;
+    outline: none;
+    color: #fff;
+  }
+
+  .canvas-panel {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  #editorCanvas {
+    border-radius: 8px;
+    cursor: grab;
+    touch-action: none;
+    max-width: 100%;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+  #editorCanvas:active { cursor: grabbing; }
+
+  .canvas-hint {
+    font-size: 0.75rem;
+    color: #444;
+    text-align: center;
+  }
+
+  .saved-templates { margin-bottom: 1.5rem; }
+
+  .tpl-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .tpl-item {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .tpl-item .tpl-name { font-size: 0.875rem; color: #ccc; flex: 1; }
+  .tpl-item .tpl-meta { font-size: 0.72rem; color: #444; }
+
+  .tpl-actions { display: flex; gap: 0.4rem; }
+  .tpl-actions button {
+    padding: 0.3rem 0.65rem;
+    border-radius: 5px;
+    border: none;
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .btn-load   { background: #1e3a1e; color: #86efac; }
+  .btn-apply  { background: #1e2f4a; color: #93c5fd; }
+  .btn-del    { background: #3a1e1e; color: #fca5a5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Template Editor</h1>
+
+<!-- Saved templates list -->
+{% if templates %}
+<div class="saved-templates card">
+  <h2>Saved Templates</h2>
+  <div class="tpl-list">
+    {% for tpl in templates %}
+    <div class="tpl-item">
+      <div>
+        <div class="tpl-name">{{ tpl.name }}</div>
+        <div class="tpl-meta">{{ tpl.orientation }} · {{ tpl.captures }} photo(s)</div>
+      </div>
+      <div class="tpl-actions">
+        <button class="btn-load" onclick="loadTemplate('{{ tpl._file }}')">Load</button>
+        <form action="/admin/templates/apply/{{ tpl._file }}" method="POST" style="display:inline;">
+          <button type="submit" class="btn-apply">Apply</button>
+        </form>
+        <button class="btn-del" onclick="deleteTemplate('{{ tpl._file }}', '{{ tpl.name }}')">Del</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Editor -->
+<div class="editor-layout">
+  <!-- Left controls panel -->
+  <div class="controls-panel">
+    <div class="control-section">
+      <div class="control-header">Template</div>
+      <div class="control-body">
+        <div class="field">
+          <label>Name</label>
+          <input type="text" id="tplName" value="New Template">
+        </div>
+      </div>
+    </div>
+
+    <div class="control-section">
+      <div class="control-header">Layout</div>
+      <div class="control-body">
+        <div class="field">
+          <label>Orientation</label>
+          <select id="tplOrientation">
+            <option value="portrait">Portrait</option>
+            <option value="landscape">Landscape</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Photos</label>
+          <select id="tplCaptures">
+            <option value="1">1 photo</option>
+            <option value="2">2 photos</option>
+            <option value="4">4 photos</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Border (px)</label>
+          <input type="number" id="tplMargin" value="20" min="0" max="80">
+        </div>
+      </div>
+    </div>
+
+    <div class="control-section">
+      <div class="control-header">Background</div>
+      <div class="control-body">
+        <div class="field">
+          <label>Color (R, G, B)</label>
+          <input type="text" id="tplBackground" value="(20, 20, 20)" placeholder="(20, 20, 20)">
+        </div>
+        {% if backgrounds %}
+        <div class="field">
+          <label>Background image</label>
+          <select id="tplBgImage">
+            <option value="">— none —</option>
+            {% for bg in backgrounds %}
+            <option value="{{ bg.name }}">{{ bg.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% else %}
+        <p style="font-size:0.75rem; color:#444;">Upload backgrounds in the admin panel.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="control-section">
+      <div class="control-header">Overlay</div>
+      <div class="control-body">
+        {% if overlays %}
+        <div class="field">
+          <label>Overlay PNG</label>
+          <select id="tplOverlay">
+            <option value="">— none —</option>
+            {% for ov in overlays %}
+            <option value="{{ ov.name }}">{{ ov.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% else %}
+        <p style="font-size:0.75rem; color:#444;">Upload overlays in the admin panel.</p>
+        <select id="tplOverlay" style="display:none;"></select>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="control-section">
+      <div class="control-header">Footer Text</div>
+      <div class="control-body">
+        <div class="field">
+          <label>Line 1</label>
+          <input type="text" id="tplFooter1" placeholder="Event name, date…">
+        </div>
+        <div class="field">
+          <label>Line 2</label>
+          <input type="text" id="tplFooter2" placeholder="Tagline, URL…">
+        </div>
+        <div class="field">
+          <label>Text color (R, G, B)</label>
+          <input type="text" id="tplTextColor" value="(255, 255, 255)">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas preview + save -->
+  <div class="canvas-panel">
+    <canvas id="editorCanvas"></canvas>
+    <p class="canvas-hint">Drag photo zones to reposition them</p>
+    <button class="btn btn-primary" style="width: 100%; padding: 0.85rem;"
+            onclick="saveTemplate()">
+      Save Template
+    </button>
+  </div>
+</div>
+
+<script src="/static/js/editor.js"></script>
+{% endblock %}

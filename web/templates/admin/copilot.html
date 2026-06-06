@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}CoPilot — oi-booth{% endblock %}
+
+{% block head %}
+<style>
+  .pilot-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 500px) { .pilot-grid { grid-template-columns: 1fr; } }
+
+  .trigger-btn {
+    width: 100%;
+    padding: 2rem 1rem;
+    font-size: 1.4rem;
+    font-weight: 700;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    letter-spacing: -0.01em;
+    transition: transform 0.1s, opacity 0.15s;
+    background: #f97316;
+    color: #fff;
+  }
+  .trigger-btn:active { transform: scale(0.96); }
+  .trigger-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .mode-btn {
+    flex: 1;
+    padding: 0.75rem 0.5rem;
+    border-radius: 8px;
+    border: 2px solid #2a2a2a;
+    background: #111;
+    color: #666;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .mode-btn.active {
+    border-color: #f97316;
+    color: #f97316;
+    background: rgba(249,115,22,0.08);
+  }
+  .mode-btn:hover:not(.active) { border-color: #444; color: #ccc; }
+
+  .status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .dot-wait       { background: #22c55e; animation: pulse 2s infinite; }
+  .dot-capture    { background: #f97316; animation: pulse 0.5s infinite; }
+  .dot-processing { background: #eab308; animation: pulse 0.8s infinite; }
+  .dot-finish     { background: #3b82f6; }
+  .dot-unknown    { background: #555; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
+
+  .last-photo {
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #2a2a2a;
+    background: #111;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .last-photo img { width: 100%; display: block; }
+  .last-photo .placeholder { color: #333; font-size: 0.85rem; }
+
+  .stat-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .mini-stat {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    flex: 1;
+    min-width: 100px;
+    text-align: center;
+  }
+  .mini-stat .val { font-size: 1.4rem; font-weight: 700; color: #f97316; }
+  .mini-stat .lbl { font-size: 0.7rem; color: #555; margin-top: 2px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>CoPilot <span style="font-size:0.75rem; color:#555; font-weight:400;">remote operator</span></h1>
+
+<!-- Live status bar -->
+<div class="card" style="padding: 0.75rem 1.25rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+  <span>
+    <span class="status-dot dot-{{ status.state }}" id="statusDot"></span>
+    <span id="statusText" style="font-size:0.9rem; color:#aaa;">{{ status.state | upper }}</span>
+  </span>
+  <span style="font-size:0.8rem; color:#555;" id="modeLabel">Mode: {{ status.mode | upper }}</span>
+</div>
+
+<!-- Stats row -->
+<div class="stat-row">
+  <div class="mini-stat">
+    <div class="val" id="photoCount">{{ status.photo_count }}</div>
+    <div class="lbl">Photos this session</div>
+  </div>
+  <div class="mini-stat" id="lastSessionCell" style="{% if not status.last_session_id %}display:none{% endif %}">
+    <div class="val" style="font-size:0.9rem;">
+      <a href="/gallery/{{ status.last_session_id }}" target="_blank" style="color:#f97316; text-decoration:none;">View →</a>
+    </div>
+    <div class="lbl">Last photo</div>
+  </div>
+</div>
+
+<!-- Capture trigger -->
+<div class="card">
+  <button class="trigger-btn" id="captureBtn" onclick="sendCommand('capture')">
+    📸 Take Photo
+  </button>
+</div>
+
+<!-- Mode selector -->
+<div class="card">
+  <h2 style="margin-bottom:0.75rem;">Capture Mode</h2>
+  <div style="display:flex; gap:0.75rem;">
+    <button class="mode-btn {% if status.mode == 'photo' %}active{% endif %}"
+            id="mode-photo" onclick="setMode('photo')">Photo</button>
+    <button class="mode-btn {% if status.mode == 'gif' %}active{% endif %}"
+            id="mode-gif" onclick="setMode('gif')">GIF</button>
+    <button class="mode-btn {% if status.mode == 'boomerang' %}active{% endif %}"
+            id="mode-boomerang" onclick="setMode('boomerang')">Boomerang</button>
+  </div>
+</div>
+
+<div class="pilot-grid">
+  <!-- Last photo preview -->
+  <div class="card" style="padding:1rem;">
+    <h2 style="margin-bottom:0.75rem;">Last Photo</h2>
+    <div class="last-photo" id="lastPhotoWrap">
+      {% if status.last_session_id %}
+      <img src="/gallery/{{ status.last_session_id }}/photo" id="lastPhotoImg"
+           onerror="this.parentElement.innerHTML='<span class=\'placeholder\'>No photo yet</span>'">
+      {% else %}
+      <span class="placeholder">No photo yet</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="card" style="padding:1rem;">
+    <h2 style="margin-bottom:0.75rem;">Controls</h2>
+    <div style="display:flex; flex-direction:column; gap:0.75rem;">
+      <button class="btn btn-ghost" style="width:100%; padding:0.75rem;"
+              onclick="sendCommand('restart')" id="restartBtn">
+        Restart Booth
+      </button>
+      <a href="/admin" class="btn btn-ghost" style="width:100%; padding:0.75rem; text-align:center;">
+        Admin Panel
+      </a>
+      <a href="/admin/logs" class="btn btn-ghost" style="width:100%; padding:0.75rem; text-align:center;">
+        View Logs
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentMode = '{{ status.mode }}';
+  let pollInterval;
+
+  async function sendCommand(action, extra = {}) {
+    const body = new FormData();
+    body.append('action', action);
+    Object.entries(extra).forEach(([k, v]) => body.append(k, v));
+
+    const btn = document.getElementById('captureBtn');
+    if (action === 'capture') {
+      btn.disabled = true;
+      btn.textContent = '⏳ Sending…';
+    }
+    if (action === 'restart') {
+      if (!confirm('Restart the booth?')) return;
+    }
+
+    try {
+      const res = await fetch('/admin/copilot/command', { method: 'POST', body });
+      const data = await res.json();
+      if (!data.ok) console.error('Command failed:', data.error);
+    } catch (e) {
+      console.error('Command error:', e);
+    }
+
+    if (action === 'capture') {
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = '📸 Take Photo';
+      }, 3000);
+    }
+  }
+
+  function setMode(mode) {
+    currentMode = mode;
+    sendCommand('set_mode', { mode });
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('mode-' + mode).classList.add('active');
+    document.getElementById('modeLabel').textContent = 'Mode: ' + mode.toUpperCase();
+  }
+
+  async function pollStatus() {
+    try {
+      const res = await fetch('/admin/copilot/status');
+      const s = await res.json();
+
+      // Update state dot
+      const dot = document.getElementById('statusDot');
+      dot.className = 'status-dot dot-' + s.state;
+      document.getElementById('statusText').textContent = s.state.toUpperCase();
+      document.getElementById('photoCount').textContent = s.photo_count;
+      document.getElementById('modeLabel').textContent = 'Mode: ' + (s.mode || 'photo').toUpperCase();
+
+      // Update last photo
+      if (s.last_session_id) {
+        const wrap = document.getElementById('lastPhotoWrap');
+        wrap.innerHTML = `<img src="/gallery/${s.last_session_id}/photo?t=${Date.now()}"
+          onerror="this.parentElement.innerHTML='<span class=\'placeholder\'>No photo yet</span>'">`;
+        const cell = document.getElementById('lastSessionCell');
+        if (cell) {
+          cell.style.display = '';
+          cell.querySelector('.val').innerHTML =
+            `<a href="/gallery/${s.last_session_id}" target="_blank"
+                style="color:#f97316; text-decoration:none;">View →</a>`;
+        }
+      }
+
+      // Re-enable capture button if booth is back to wait
+      const btn = document.getElementById('captureBtn');
+      if (s.state === 'wait') {
+        btn.disabled = false;
+        btn.textContent = '📸 Take Photo';
+      }
+    } catch (e) {
+      // network blip — ignore
+    }
+  }
+
+  pollInterval = setInterval(pollStatus, 2000);
+  pollStatus();
+</script>
+{% endblock %}

@@ -177,10 +177,11 @@
 <body>
   <nav>
     <span class="brand">oi<span>-booth</span></span>
-    <a href="/admin" {% if request.path.startswith('/admin') and not request.path.startswith('/admin/logs') %}class="active"{% endif %}>Admin</a>
+    <a href="/admin" {% if request.path == '/admin' %}class="active"{% endif %}>Admin</a>
+    <a href="/admin/copilot" {% if request.path.startswith('/admin/copilot') %}class="active"{% endif %}>CoPilot</a>
+    <a href="/admin/templates" {% if request.path.startswith('/admin/templates') %}class="active"{% endif %}>Templates</a>
+    <a href="/gallery" {% if request.path.startswith('/gallery') %}class="active"{% endif %}>Gallery</a>
     <a href="/admin/logs" {% if request.path.startswith('/admin/logs') %}class="active"{% endif %}>Logs</a>
-    <a href="/gallery">Gallery</a>
-    <a href="/health">Status</a>
   </nav>
 
   <div class="container">
