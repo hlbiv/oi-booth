@@ -324,17 +324,25 @@ def restart_booth():
     return redirect(url_for("admin.index"))
 
 
-@admin_bp.route("/logs")
-def logs():
+def _fetch_log_lines() -> list:
     try:
         result = subprocess.run(
             ["journalctl", "-u", "oi-booth", "-n", "150", "--no-pager"],
             capture_output=True, text=True, timeout=5
         )
-        lines = result.stdout.strip().split("\n") if result.stdout else []
+        return result.stdout.strip().split("\n") if result.stdout else []
     except Exception:
-        lines = ["Log unavailable — journalctl not found or service not running."]
-    return render_template("admin/logs.html", lines=lines)
+        return ["Log unavailable — journalctl not found or service not running."]
+
+
+@admin_bp.route("/logs")
+def logs():
+    return render_template("admin/logs.html", lines=_fetch_log_lines())
+
+
+@admin_bp.route("/logs/data")
+def logs_data():
+    return jsonify({"lines": _fetch_log_lines()})
 
 
 @admin_bp.route("/api/status")
