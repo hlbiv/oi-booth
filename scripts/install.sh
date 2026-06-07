@@ -12,6 +12,7 @@ sudo apt-get install -y \
   python3 python3-venv python3-pip \
   libsdl2-dev python3-opencv \
   cups libcups2-dev \
+  network-manager \
   fonts-dejavu-core \
   git
 

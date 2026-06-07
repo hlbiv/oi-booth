@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}WiFi — oi-booth{% endblock %}
+
+{% block head %}
+<style>
+  .wifi-status-card {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 12px;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .wifi-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    background: #333;
+  }
+  .wifi-dot.on  { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+  .wifi-dot.off { background: #555; }
+  .wifi-status-label { font-size: 0.82rem; color: #888; }
+  .wifi-ssid { font-weight: 700; color: #e8e8e8; font-size: 0.95rem; }
+  .wifi-ip   { font-size: 0.75rem; color: #555; margin-top: 2px; }
+
+  .scan-btn {
+    width: 100%; padding: 0.85rem; border: none; border-radius: 12px;
+    background: #1a1a1a; border: 1px solid #2a2a2a;
+    color: #ccc; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+    margin-bottom: 1rem; transition: background 0.15s;
+  }
+  .scan-btn:hover  { background: #222; }
+  .scan-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .network-list { display: flex; flex-direction: column; gap: 0.4rem; }
+
+  .network-item {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .network-item.in-use { border-color: #f97316; }
+
+  .network-row {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.75rem 1rem; cursor: pointer; user-select: none;
+  }
+  .network-row:hover { background: #161616; }
+
+  .signal-bars {
+    display: flex; align-items: flex-end; gap: 2px; flex-shrink: 0; height: 16px;
+  }
+  .signal-bars span {
+    width: 4px; background: #333; border-radius: 2px;
+    transition: background 0.2s;
+  }
+  .signal-bars span.lit { background: #f97316; }
+
+  .network-name { flex: 1; font-size: 0.9rem; color: #e8e8e8; }
+  .network-lock { font-size: 0.75rem; color: #555; }
+  .network-badge {
+    font-size: 0.65rem; font-weight: 700; padding: 2px 7px;
+    border-radius: 4px; background: #f97316; color: #fff; letter-spacing: 0.04em;
+  }
+
+  .connect-panel {
+    display: none; padding: 0 1rem 1rem; border-top: 1px solid #222;
+  }
+  .connect-panel.open { display: block; }
+
+  .pw-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+  .pw-row input {
+    flex: 1; background: #0a0a0a; border: 1px solid #333; border-radius: 8px;
+    color: #e8e8e8; padding: 0.65rem 0.9rem; font-size: 0.875rem; outline: none;
+  }
+  .pw-row input:focus { border-color: #f97316; }
+  .pw-row .btn-connect {
+    background: #f97316; color: #fff; border: none; border-radius: 8px;
+    padding: 0.65rem 1.1rem; font-weight: 700; cursor: pointer;
+    font-size: 0.875rem; white-space: nowrap;
+  }
+  .pw-row .btn-connect:disabled { opacity: 0.5; cursor: default; }
+
+  .connect-msg {
+    font-size: 0.78rem; margin-top: 0.5rem; min-height: 1.1em; color: #666;
+  }
+  .connect-msg.ok  { color: #22c55e; }
+  .connect-msg.err { color: #ef4444; }
+
+  .scan-hint { color: #333; font-size: 0.82rem; text-align: center; padding: 2rem 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom:1.1rem">WiFi</h1>
+
+<!-- Current status -->
+<div class="wifi-status-card" id="statusCard">
+  <div class="wifi-dot {% if status.connected %}on{% else %}off{% endif %}" id="statusDot"></div>
+  <div>
+    <div class="wifi-ssid" id="statusSsid">
+      {% if status.connected %}{{ status.ssid }}{% else %}Not connected{% endif %}
+    </div>
+    <div class="wifi-ip" id="statusIp">
+      {% if status.connected %}{{ status.ip }}{% elif status.error %}{{ status.error }}{% else %}No network{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Scan -->
+<button class="scan-btn" id="scanBtn" onclick="startScan()">Scan for networks</button>
+
+<div class="network-list" id="networkList">
+  <p class="scan-hint" id="scanHint">Tap scan to find nearby networks</p>
+</div>
+
+<script>
+  let openPanel = null;
+
+  // ── Scan ──────────────────────────────────────────────────────────────────
+  async function startScan() {
+    const btn  = document.getElementById('scanBtn');
+    const list = document.getElementById('networkList');
+    const hint = document.getElementById('scanHint');
+    btn.disabled = true;
+    btn.textContent = 'Scanning…';
+    if (hint) hint.textContent = 'Scanning for networks…';
+
+    try {
+      const res  = await fetch('/admin/wifi/api/scan');
+      const data = await res.json();
+      renderNetworks(data.networks || []);
+    } catch {
+      list.innerHTML = '<p class="scan-hint">Scan failed — is NetworkManager running?</p>';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Scan again';
+  }
+
+  // ── Render network list ───────────────────────────────────────────────────
+  function signalBars(pct) {
+    const levels = [20, 40, 65, 85];
+    return levels.map((threshold, i) =>
+      `<span style="height:${(i+1)*4}px" class="${pct >= threshold ? 'lit' : ''}"></span>`
+    ).join('');
+  }
+
+  function renderNetworks(networks) {
+    const list = document.getElementById('networkList');
+    if (!networks.length) {
+      list.innerHTML = '<p class="scan-hint">No networks found</p>';
+      return;
+    }
+    list.innerHTML = networks.map((n, i) => `
+      <div class="network-item ${n.in_use ? 'in-use' : ''}" id="net-${i}">
+        <div class="network-row" onclick="togglePanel(${i}, ${JSON.stringify(n.ssid)}, ${JSON.stringify(n.security)})">
+          <div class="signal-bars">${signalBars(n.signal)}</div>
+          <span class="network-name">${escHtml(n.ssid)}</span>
+          ${n.security ? '<span class="network-lock">🔒</span>' : ''}
+          ${n.in_use ? '<span class="network-badge">CONNECTED</span>' : ''}
+        </div>
+        <div class="connect-panel" id="panel-${i}">
+          ${n.security ? `
+            <div class="pw-row">
+              <input type="password" id="pw-${i}" placeholder="Password"
+                     onkeydown="if(event.key==='Enter') doConnect(${i},${JSON.stringify(n.ssid)})">
+              <button class="btn-connect" id="cbtn-${i}"
+                      onclick="doConnect(${i},${JSON.stringify(n.ssid)})">Join</button>
+            </div>` : `
+            <div class="pw-row" style="justify-content:flex-end">
+              <button class="btn-connect" id="cbtn-${i}"
+                      onclick="doConnect(${i},${JSON.stringify(n.ssid)})">Join</button>
+            </div>`}
+          <p class="connect-msg" id="msg-${i}"></p>
+        </div>
+      </div>`
+    ).join('');
+    openPanel = null;
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+              .replace(/"/g,'&quot;');
+  }
+
+  function togglePanel(idx, ssid, security) {
+    const panel = document.getElementById(`panel-${idx}`);
+    const isOpen = panel.classList.contains('open');
+    if (openPanel !== null) {
+      document.getElementById(`panel-${openPanel}`)?.classList.remove('open');
+    }
+    if (!isOpen) {
+      panel.classList.add('open');
+      openPanel = idx;
+      if (security) setTimeout(() => document.getElementById(`pw-${idx}`)?.focus(), 50);
+    } else {
+      openPanel = null;
+    }
+  }
+
+  // ── Connect ───────────────────────────────────────────────────────────────
+  async function doConnect(idx, ssid) {
+    const pw   = document.getElementById(`pw-${idx}`)?.value || '';
+    const btn  = document.getElementById(`cbtn-${idx}`);
+    const msg  = document.getElementById(`msg-${idx}`);
+
+    btn.disabled = true;
+    btn.textContent = 'Connecting…';
+    msg.textContent = 'This may take up to 30 seconds…';
+    msg.className = 'connect-msg';
+
+    try {
+      const res  = await fetch('/admin/wifi/api/connect', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ ssid, password: pw }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        msg.textContent = `Connected to ${ssid}`;
+        msg.className = 'connect-msg ok';
+        btn.textContent = 'Connected';
+        refreshStatus();
+      } else {
+        msg.textContent = data.error || 'Connection failed';
+        msg.className = 'connect-msg err';
+        btn.textContent = 'Join';
+        btn.disabled = false;
+      }
+    } catch {
+      msg.textContent = 'Network error — try again';
+      msg.className = 'connect-msg err';
+      btn.textContent = 'Join';
+      btn.disabled = false;
+    }
+  }
+
+  // ── Refresh status card ───────────────────────────────────────────────────
+  async function refreshStatus() {
+    try {
+      const res  = await fetch('/admin/wifi/api/status');
+      const data = await res.json();
+      document.getElementById('statusDot').className =
+        'wifi-dot ' + (data.connected ? 'on' : 'off');
+      document.getElementById('statusSsid').textContent =
+        data.connected ? data.ssid : 'Not connected';
+      document.getElementById('statusIp').textContent =
+        data.connected ? data.ip : (data.error || 'No network');
+    } catch { /* ignore */ }
+  }
+
+  // Refresh status every 15s
+  setInterval(refreshStatus, 15000);
+</script>
+{% endblock %}

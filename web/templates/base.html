@@ -201,6 +201,7 @@
     <a href="/admin/ops" id="nav-health-link" {% if request.path.startswith('/admin/ops') %}class="active"{% endif %} style="display:flex;align-items:center;gap:0.4rem">Health<span id="nav-health-dot" class="nav-health-dot nav-health-dot--ok" title="All systems OK" style="display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0"></span></a>
     <a href="/admin/display" {% if request.path.startswith('/admin/display') %}class="active"{% endif %}>Display</a>
     <a href="/admin/lighting" {% if request.path.startswith('/admin/lighting') %}class="active"{% endif %}>Lighting</a>
+    <a href="/admin/wifi" {% if request.path.startswith('/admin/wifi') %}class="active"{% endif %}>WiFi</a>
     <a href="/auth/logout" {% if request.path.startswith('/auth') %}class="active"{% endif %}>Logout</a>
     {% endif %}
   </nav>

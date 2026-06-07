@@ -45,6 +45,7 @@ from .routes.sharing import sharing_bp
 from .routes.ops import ops_bp
 from .routes.lighting import lighting_bp
 from .routes.display_settings import display_bp
+from .routes.wifi import wifi_bp
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("OI_SECRET_KEY", "oi-booth-dev-key")
@@ -62,6 +63,7 @@ app.register_blueprint(sharing_bp,   url_prefix="/share")
 app.register_blueprint(ops_bp,       url_prefix="/admin/ops")
 app.register_blueprint(lighting_bp,  url_prefix="/admin/lighting")
 app.register_blueprint(display_bp,   url_prefix="/admin/display")
+app.register_blueprint(wifi_bp,      url_prefix="/admin/wifi")
 
 
 @app.before_request
